@@ -58,7 +58,7 @@ At **dispatch time**, *before* the engine compiles the file, Prooflayer resolves
 the placeholder:
 
 1. **Find** the placeholder OBJECT (the one with `behavior inject_from_bound_asset`); read its `target` (asset type) and `link` (relation).
-2. **Walk** the asset graph from the bound asset to `target`-typed descendants, following `link` — a recursive walk over each asset's `parents` edges (relations like `contains`, `member_of`). A bound asset that *is* the target type matches at depth 0 (N=1).
+2. **Walk** the asset graph from the bound asset to `target`-typed descendants, following `link` — a recursive walk over each asset's `parents`/`children` edges. The `link` directive picks which **relations** the walk follows; the default (`child`/`children`/`descendant`) walks only `contains` + `member_of`. Other structural relations (`references`, `attached_to`, `alias_of`, `installs`, `peers_with`) are opt-in by naming them in `link`; see the full [relation taxonomy](../components/inventory.md#the-asset-graph--link-taxonomy). A bound asset that *is* the target type matches at depth 0 (N=1).
 3. **Fill** one concrete OBJECT per resolved asset, from that asset's metadata.
 4. **Splice** the rendered OBJECTs into the SET, strip the directive fields, and hand the engine a fully concrete policy.
 

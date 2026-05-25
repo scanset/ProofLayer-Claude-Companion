@@ -101,6 +101,10 @@ Registration records the optional `target_asset_type` hint and warns on
 mismatch — that hint, plus scoped injection at dispatch, is the whole
 "what-applies-to-what" mechanism.
 
+> Writing or changing the `.esp` files themselves (not just registering them) is
+> done on the **ESP Policies** page — a git-backed editor with history and
+> rollback. See [esp/policy-editor.md](../esp/policy-editor.md).
+
 ---
 
 ## 5. Frameworks & control mapping

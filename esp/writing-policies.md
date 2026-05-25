@@ -4,6 +4,10 @@ The practical workflow: from "I need to check X for control Y" to a compiled,
 runnable `.esp`. Assumes you know the [language](language-reference.md) and
 [how outcomes work](evaluation-and-outcomes.md).
 
+> Want to do this **in the product** rather than on disk? The system-ui **ESP
+> Policies** page is a git-backed editor — create/edit in the browser with
+> history & one-click rollback. See [policy-editor.md](policy-editor.md).
+
 ---
 
 ## 1. The loop

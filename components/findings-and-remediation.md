@@ -49,17 +49,38 @@ re-keying status.
 
 ## Remediation decisions
 
-For findings you won't (or can't) fix immediately, the operator records a
-decision instead of leaving it ambiguous:
+For a finding you won't (or can't) immediately fix, the operator **records a
+decision** instead of leaving it ambiguous — an inline form on the finding (the
+same form on the Vulnerabilities/CVE page and the Misconfigurations/compliance
+page). Five decision kinds:
 
-- **Accept risk** — with a rationale; the finding stays visible but is
-  acknowledged.
-- **False positive** — the detection doesn't actually apply here.
-- **Remediated / patched** — typically set automatically when a rescan passes,
-  but recordable explicitly.
+| Decision | Meaning | Notes |
+|---|---|---|
+| **Remediation planned** | a fix is scheduled | supports a **target date** |
+| **Mitigation in place** | a compensating control reduces the risk | supports a **target date** |
+| **Remediated / verified** | fixed and confirmed | usually set automatically when a rescan passes; recordable explicitly |
+| **Accept risk** | acknowledged, not fixing now | **rationale required** |
+| **False positive** | the detection doesn't apply here | **rationale required** |
 
-Decisions are part of the finding's record and visible to oversight (the AO),
-so the "what are you doing about this" answer travels with the evidence.
+- **Rationale** (a markdown note) is the **audit artifact** — encouraged on every
+  decision, and **mandatory** for *Accept risk* and *False positive* (the form
+  won't save without it).
+- **Target date** appears only for the plan-shaped decisions (*Remediation
+  planned*, *Mitigation in place*).
+- Recording a decision **flips the finding's status** and is an UPSERT — you can
+  revise it later. The decision is part of the finding's durable record.
+- **Bulk decisions** — select many findings and apply one decision atomically
+  (all-or-nothing) in a single step.
+
+Endpoints: a CVE/VDR finding takes a decision at
+`POST /api/inventory/vdr/findings/{id}/decision`; a compliance finding is
+decided via `…/vdr/mark-misconfig` (and `…/mark-misconfig/bulk`), which projects
+the finding's VDR counterpart and records the decision together. You can filter
+the findings list by recorded decision (any / undecided / a specific kind).
+
+Decisions travel with the evidence and are visible to oversight (the AO via
+CMR), so the "what are you doing about this" answer is attached to the finding
+itself — not kept in a side spreadsheet.
 
 ## The "automatic POA&M" idea (framed honestly)
 

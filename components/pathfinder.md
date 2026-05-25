@@ -28,9 +28,14 @@ source of truth.
   asset graph outward in both directions to a chosen **depth** (1–5 hops) and
   draws the surrounding neighborhood.
 - **Edges are discovered linkage.** The connections are the relationships
-  discovery already recorded between assets (e.g. *contains* / *references* —
-  a subscription contains a resource group, a cluster contains a node). Edge
-  labels are shown verbatim.
+  discovery already recorded between assets, projected into directed edges.
+  Pathfinder draws **both layers** of the [asset graph](inventory.md#the-asset-graph--link-taxonomy):
+  the structural relations (`contains` / `member_of` / `references` /
+  `attached_to` / `alias_of` / `installs` / `peers_with`) *and* the semantic
+  linkage layer (`grants` / `uses` / `trusts` / `deploys_to` …) that scope
+  resolution deliberately ignores — those are the blast-radius and attack-path
+  lines. Edge labels are shown verbatim. (Today every edge is *declared*
+  structure; a future *exploit* edge class plugs in here for attack paths.)
 - **Nodes carry real risk.** Each asset is hydrated at request time with its
   open-finding counts — critical / high / total — and a KEV flag, all sourced
   from signed scan evidence.

@@ -11,15 +11,18 @@ interval — and the **Schedules** page is the fleet-wide view of all of them.
 
 ## Setting a cadence
 
-A schedule is attached to a specific **asset↔policy link**, from that link's row
-on **Asset Detail**:
+A schedule is attached to a specific **asset↔policy link**, from that link's
+**Schedule** cell on **Asset Detail**:
 
-1. Find the linked policy on the asset.
+1. Find the linked policy on the asset. Only **active** links can be scheduled —
+   a paused or archived link shows `—` instead of a schedule control.
 2. Set an **interval** — presets are 15 min / hourly / every 6 h / daily /
-   weekly, or a custom interval.
-3. Choose the **credential** the scheduled scan will use.
-4. Save. The link now fires on that cadence; the scheduler picks up due links and
-   dispatches them like a manual scan (signed, logged, persisted).
+   weekly, or pick **Custom…** for an arbitrary interval (minimum **60 s**).
+3. Choose the **credential** the scheduled scan will use. This is **required** —
+   Save stays disabled until a credential is selected.
+4. Save (`PUT /api/inventory/asset-policies/{asset}/{policy}/schedule`). The link
+   now fires on that cadence; the scheduler picks up due links and dispatches
+   them like a manual scan (signed, logged, persisted).
 
 A link with no schedule simply never fires on its own — you scan it manually.
 

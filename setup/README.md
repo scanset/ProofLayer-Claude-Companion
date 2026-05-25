@@ -5,7 +5,7 @@ nothing to build, nothing to configure, and no database to set up — the
 container provisions everything it needs on first launch and **just works**.
 
 ```bash
-docker pull scanset/prooflayer-alpha-v0_1:latest   # exact ref provided with the eval
+docker pull scanset/prooflayer-alpha-v0_1:0.1-alpha   # exact ref provided with the eval
 ```
 
 Inside the image: the Prooflayer server, nginx (reverse proxy + static UI),
@@ -39,7 +39,7 @@ docker run -d --name prooflayer \
   -p 8080:80 \
   -p 9090:8081 \
   -v prooflayer-data:/var/lib/prooflayer \
-  scanset/prooflayer-alpha-v0_1:latest
+  scanset/prooflayer-alpha-v0_1:0.1-alpha
 ```
 
 That's the whole bring-up. On first launch the container generates its own PKI,

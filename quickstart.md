@@ -15,12 +15,12 @@ verifiable scan result**. Each step links to the deeper page if you want detail.
 The alpha ships as a single all-in-one image. Pull it and start it:
 
 ```bash
-docker pull scanset/prooflayer-alpha-v0_1:latest
+docker pull scanset/prooflayer-alpha-v0_1:0.1-alpha
 
 # -p 8080:80   → operator UI + API
 # -p 9090:8081 → CMR read-only oversight API (optional)
 docker run -d --name prooflayer-alpha -p 8080:80 -p 9090:8081 \
-  scanset/prooflayer-alpha-v0_1:latest
+  scanset/prooflayer-alpha-v0_1:0.1-alpha
 ```
 
 Then open **http://localhost:8080** in a browser — that's the operator

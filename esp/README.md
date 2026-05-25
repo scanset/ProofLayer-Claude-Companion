@@ -25,6 +25,7 @@ asset automatically. This folder is the canonical ESP reference for the guide.
 | 7 | [injection-and-scoped-injection.md](injection-and-scoped-injection.md) | **How one policy auto-attaches to assets and scans each one** — placeholder OBJECT, SET_REF, walk→fill→splice, scoped contracts, auto-link. |
 | 8 | [assessor-cli.md](assessor-cli.md) | Running `esp_assessor`: channels, flags, examples, exit codes. |
 | 9 | [errors-and-gotchas.md](errors-and-gotchas.md) | The error model (codes like E043) and the authoring traps that bite (ASCII-only, OBJECT vs STATE, `behavior`, typed fields). |
+| 10 | [policy-editor.md](policy-editor.md) | The in-product **ESP Policies** page: create/edit/delete in the browser, git-backed **history & rollback** (every change is a commit), and how it relates to the registry. |
 
 ### Bundled reference (browsable)
 

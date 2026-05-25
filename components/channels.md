@@ -30,6 +30,34 @@ omitted at build time, so slim builds can ship without unused transports for
 least-privilege deployments. The scanner selects and constructs the right
 transport from the channel kind named in the binding.
 
+## Cloud checks always use the `local` channel
+
+> **Rule of thumb: every cloud / control-plane scan runs on the `local`
+> channel.** That covers **AWS, Azure, GCP, Microsoft 365, and Kubernetes
+> clusters.**
+
+These collectors are built on **local primitives** — the scanner invokes the
+provider's CLI/SDK (`aws`, `az`, `gcloud`, `kubectl`) *from the container
+itself* and authenticates with the cloud credential you supplied. There is no
+remote host to reach into: the "target" is an API endpoint queried locally, so
+the transport is `local`. Pairing a cloud asset with `ssh`/`aws-ssm`/
+`az-bastion`/`winrm` is a category error — those channels exist only for
+**host** scans (a Linux or Windows machine you log into).
+
+| Asset you're scanning | Channel | Credential the local CLI uses |
+|---|---|---|
+| AWS account / resource | `local` | `aws_access_key` or `aws_role` |
+| Azure subscription / resource | `local` | `azure_spn` / `azure_spn_cert` |
+| GCP project / resource | `local` | `gcp_sa_key` |
+| Microsoft 365 tenant | `local` | `m365_delegated_refresh` |
+| Kubernetes cluster | `local` | `kube_config` (or AKS/EKS cloud cred) |
+| Linux host | `ssh` (or `aws-ssm` / `az-bastion`) | `ssh_key` (+ SPN for Bastion) |
+| Windows host | `winrm` | `winrm_password` |
+
+In system-ui the channel picker already restricts cloud assets to `local`, so
+you normally just accept the default — but if you're driving the API directly,
+set the binding's channel to `local` for any of the cloud/K8s asset types above.
+
 ## Channel ≠ binary
 
 Channel choice is independent of the CTN set. Valid combinations include Azure

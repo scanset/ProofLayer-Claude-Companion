@@ -19,6 +19,7 @@ findings, the per-asset proof timeline).
 | Scan one asset against all its active links | **Asset Detail → pick a credential → "Scan all"** |
 | Scan one asset against selected links | Asset Detail → select policy rows → link-actions → **Scan** |
 | Scan many assets at once | **Assets page → select assets → scan** (parallel batch) |
+| Scan the whole fleet (with a preview first) | the **Posture Scan** page — see below |
 | Sanity-check one policy on one asset (no persistence) | a **test-scan** — runs and returns the envelope inline, nothing stored |
 
 Each dispatch: resolves the credential → builds the channel → runs the policy's
@@ -30,6 +31,41 @@ produces a per-resource verdict for each matching resource.
 
 > First scan with no cloud creds? Use the local channel against the container
 > host — see the Tier-0 quickstart in [../../test_fixtures/](../../test_fixtures/README.md).
+
+---
+
+## Posture Scan — the fleet run
+
+The **Posture Scan** page dispatches many scans in one call — the "scan
+everything that's ready" button for an evaluation. It's the broad counterpart to
+per-asset scanning, with a **dry-run preview** so you can see exactly what would
+fire before anything does.
+
+**What it lists.** Only assets with **at least one active policy link** are
+eligible (no links → nothing to run). A *"Hide assets that aren't scan-ready"*
+toggle (on by default) further hides assets missing what a scan needs — a bound
+credential for a host, or a provider id for a cloud asset — and a counter shows
+`N eligible / M total`. Each row shows the asset, type, its **active policy
+count**, the bound credential, last-seen, and a scan-ready ✓; the list is
+searchable and sortable.
+
+**Scope.** Select rows to scan just those; **leave everything unselected to run
+every visible (eligible) asset.** The selection bar tells you how many policies
+will dispatch.
+
+**Preview, then run.** The **Dry run** box is **checked by default** — the
+button reads **Preview** and returns a *dispatch preview*: assets processed,
+policies planned, the planned dispatch per asset, and any **skipped** assets with
+the reason. Nothing is signed, logged, or persisted in a dry run. Uncheck Dry
+run and the button becomes **Run scan**: a real parallel batch dispatch
+(`POST /api/inventory/scan-now/batch`) that reports per-asset outcomes
+(attempted / pass / fail / duration), the succeeded/failed/skipped totals, and
+total time. Each dispatched scan is a normal signed, transparency-logged,
+persisted proof.
+
+> If the page is empty it tells you why: *"No assets in inventory — run discovery
+> first"* or *"No assets have policies linked — run auto-link first."* That's the
+> **discover → auto-link → posture scan** path.
 
 ---
 

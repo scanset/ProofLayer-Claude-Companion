@@ -1,6 +1,6 @@
 # Prooflayer Alpha — Evaluation Guide
 
-Welcome. This guide gets you from a fresh **Prooflayer-2 alpha container** to
+Welcome. This guide gets you from a fresh **Prooflayer alpha-release container** to
 a working evaluation: a logged-in admin console, a scan you ran yourself, and
 a signed, control-mapped, transparency-logged piece of evidence you can verify.
 
@@ -46,7 +46,7 @@ A scan in Prooflayer is not just a finding — it's a **proof**:
 |---|---|
 | **Signed envelope** | Every scan result (`AssessorPackage`) is signed by a key issued from Prooflayer's own Issuing Authority. |
 | **Replay hash** | A deterministic, identity-free SHA-256 over the normalized scan inputs. Same posture → same hash. Drift detection and tamper detection in one field. |
-| **Transparency log** | Every signing identity is appended to an append-only Merkle tree with periodic signed checkpoints. The chain is independently verifiable. |
+| **Transparency log** | Every signing identity is appended to an append-only Merkle tree with periodic signed checkpoints. The chain is verifiable. |
 | **Control mapping** | Each policy maps to compliance controls (FedRAMP 20x KSI, NIST 800-53, NIST 800-171 — CMMC maps onto 800-171), so evidence rolls up to a framework. |
 
 **Agentless** means a central server reaches each target over a pluggable
@@ -54,7 +54,7 @@ A scan in Prooflayer is not just a finding — it's a **proof**:
 declarative **ESP policies** through a built-in engine, and signs + logs the
 result. Nothing is installed on the scanned endpoint.
 
-> Positioning: *Wiz makes findings; Prooflayer makes proofs.* The moat is the
+> Positioning: *Prooflayer makes proofs.* The moat is the
 > proof contract — signed, replayable, transparency-logged, control-mapped —
 > which downstream systems consume rather than rebuild.
 
