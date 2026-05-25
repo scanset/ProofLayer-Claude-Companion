@@ -87,6 +87,19 @@ against a trusted root"** — not yet "independently verifiable" full-stop. The
 complete claim hierarchy is in
 [components/transparency-and-verifiable-evidence.md](../components/transparency-and-verifiable-evidence.md).
 
+## After you've verified one — where to go next
+
+Verifying a proof is the beat most evaluators never reach, and the one that best
+shows what Prooflayer is. If you've gotten here and it resonates:
+
+- A good question to sit with (and to tell us): **what asset types, platforms, or
+  frameworks matter most in your environment?** That's what shapes coverage.
+- For a **pilot, a guided/deeper evaluation, production hardening (FIPS, HA), or
+  framework/asset coverage** you need — FedRAMP 20x KSI, NIST 800-53 / 800-171,
+  CMMC, or a platform not in the alpha — reach out:
+  **[contact@scanset.io](mailto:contact@scanset.io)**. Alpha feedback (what was
+  missing, what broke) is just as welcome, same address.
+
 Related: [understanding-evidence.md](../components/understanding-evidence.md),
 [replay-hash.md](../components/replay-hash.md),
 [surfaces.md](../components/surfaces.md).

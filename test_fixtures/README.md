@@ -67,36 +67,40 @@ before configuring a `network_target`.
 
 ---
 
-## Tier 2 — Cloud landing zones (Terraform, billable)
+## Tier 2 — Cloud Terraform fixtures (billable)
 
-The marquee fixture is a **multi-tenant landing zone** — a hub + three tenant
-spokes per cloud, with **intentional drift** (TLS 1.0 storage, public buckets,
-disabled diagnostics) so the scanner produces real findings across tenants.
+Three bundled fixtures in [infrastructure/](infrastructure/README.md), covering
+both the cloud (`local`) channel and the host (`ssh`/`winrm`) channels:
 
-| Fixture | Stands up | Scan with |
-|---|---|---|
-| **Azure landing zone** | Hub VNet, Log Analytics, policy assignments, 3 tenant spokes (storage/KV/NSG, with drift) | `azure_spn` cred → `discover/local` + `az_*` policies |
-| **AWS landing zone** | Hub VPC, central S3 log archive, Access Analyzer, 3 tenant spokes (S3/KMS/IAM/EC2, with drift) | `aws_access_key`/`aws_role` cred → `aws_*` policies |
-| **AKS cluster** | Azure Kubernetes Service + RBAC | `azure_spn` → `discover/k8s/aks` |
-| **EKS cluster** | AWS EKS + RBAC | aws cred → `discover/k8s/eks` |
-| **Single Linux VM** | One VM as an SSH/Bastion target | `ssh_key` → `--channel ssh` / `az-bastion` |
-| **CMMC enclave** | Staged M365 + Azure baseline + Intune + Purview enclave (multi-step) | `azure_spn` / M365 → `discover/m365*` |
+| Fixture | Stands up | Channel(s) | Scan with |
+|---|---|---|---|
+| [**aws-target**](infrastructure/aws-target/README.md) | Two S3 buckets — one locked-down, one with deliberate drift | `local` | `aws_access_key`/`aws_role` → `aws_s3_bucket` policy |
+| [**azure-target**](infrastructure/azure-target/README.md) | An Azure storage account (+ RG) with TLS/HTTPS knobs to fail the policy | `local` | `azure_spn` → `discover/local` + `az_*` policies |
+| [**host-targets**](infrastructure/host-targets/README.md) (AWS) | **Ubuntu 22.04 + Rocky 9 + Windows Server 2022** in one VPC; **generates the SSH key + Windows password** | **`ssh`** + **`winrm`** | `ssh_key` + `winrm_password` (generated) → `ubuntu`/`rocky9`/`windows` policies |
+| [**azure-host-targets**](infrastructure/azure-host-targets/README.md) (Azure) | **Ubuntu 22.04 + RHEL 9 + Windows Server 2022** in one **resource group**; same generated SSH key + Windows password | **`ssh`** + **`winrm`** | `ssh_key` + `winrm_password` (generated) → `ubuntu`/`rhel9`/`windows` policies |
+
+The **host-targets** pair is the multi-OS discover-and-link story: deploy →
+export the generated SSH key → upload it as an `ssh_key` credential → run
+discovery → watch the three hosts link under their shared VPC (AWS) or resource
+group (Azure) → assign each OS's policies → scan over `ssh`/`winrm`. Pick the
+cloud you prefer — Azure's resource-group hierarchy links most cleanly.
 
 General pattern (deploy from the [infrastructure/](infrastructure/README.md) fixtures):
 
 ```bash
-cd <the fixture you want>
-cp terraform.tfvars.example terraform.tfvars   # where provided; edit subscription/region/keys
+cd infrastructure/<the fixture you want>
+cp terraform.tfvars.example terraform.tfvars   # edit region / allowed_cidr / profile
 terraform init
-terraform plan
 terraform apply
-terraform output                          # capture ids/ARNs to register as assets/creds
+terraform output                          # capture ids / addresses / generated creds
 # ... evaluate in Prooflayer ...
 terraform destroy                         # tear down — these cost money
 ```
 
-Each fixture documents its variables, the drift it plants, and what the scanner
-should flag. The CMMC enclave is multi-stage — follow its own ordered README.
+> **Want more than this?** A multi-tenant landing zone, managed AKS/EKS, or a
+> CMMC enclave are **build-your-own** progressions, not bundled fixtures — the
+> patterns are in [suggestions.md](suggestions.md). Only the three modules above
+> ship as ready-to-`apply` Terraform.
 
 ---
 
@@ -117,5 +121,6 @@ Tier 0–2.
 |---|---|
 | 5 minutes, no cloud | Tier 0 (local scan) → read the envelope + verify the hash |
 | A laptop, want K8s findings | Tier 1 (kind) |
-| A cloud account, want a real cross-tenant compliance story | Tier 2 (landing zone) |
+| A cloud account, want a cloud-compliance finding | Tier 2 (aws-target / azure-target, `local` channel) |
+| Want multi-OS hosts + the `ssh`/`winrm` channels + discover-and-link | Tier 2 (**host-targets** on AWS, or **azure-host-targets** on Azure — Ubuntu / Rocky-or-RHEL 9 / Windows Server) |
 | Need the UI to look populated for a screenshot | Tier 3 (sample seed) + one Tier 0 scan for a genuine proof |

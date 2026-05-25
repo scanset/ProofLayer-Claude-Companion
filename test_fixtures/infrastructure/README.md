@@ -11,15 +11,20 @@ green checks (a demo where everything passes proves nothing).
 
 ## The modules
 
-| Module | Provisions | Drift planted | Scan with |
+| Module | Provisions | Channel(s) exercised | Scan with |
 |---|---|---|---|
-| [azure-target/](azure-target/README.md) | An Azure storage account (+ resource group) with configurable TLS/HTTPS knobs. | flip `https_only=false` / `min_tls=TLS1_0` to fail the storage policy | `azure_spn` credential + the bundled Azure storage policy |
-| [aws-target/](aws-target/README.md) | Two S3 buckets — one locked-down, one weak. | the weak bucket has no default encryption, versioning off, public-access block disabled | `aws_access_key`/`aws_role` + the bundled `aws_s3_bucket` policy |
+| [azure-target/](azure-target/README.md) | An Azure storage account (+ resource group) with configurable TLS/HTTPS knobs (flip them to fail the policy). | `local` (cloud API) | `azure_spn` credential + the bundled Azure storage policy |
+| [aws-target/](aws-target/README.md) | Two S3 buckets — one locked-down, one deliberately weak. | `local` (cloud API) | `aws_access_key`/`aws_role` + the bundled `aws_s3_bucket` policy |
+| [host-targets/](host-targets/README.md) | **Three real hosts (AWS)** — Ubuntu 22.04, Rocky 9, Windows Server 2022 — in one VPC. **Generates the SSH keypair** (export it into an `ssh_key` credential) and the Windows admin password. | **`ssh`** (Linux) + **`winrm`** (Windows) | `ssh_key` + `winrm_password` (generated); `aws_*` cred for discovery |
+| [azure-host-targets/](azure-host-targets/README.md) | **Three real hosts (Azure)** — Ubuntu 22.04, RHEL 9, Windows Server 2022 — in one **resource group** (cleaner discovery hierarchy). Same generated SSH key + Windows password. | **`ssh`** (Linux) + **`winrm`** (Windows) | `ssh_key` + `winrm_password` (generated); `azure_spn` cred for discovery |
 
-Both are minimal and cheap. For a richer, multi-tenant story (hub + drifting
-tenant spokes), AKS/EKS clusters, a single SSH VM, or a local `kind` cluster,
-see the broader fixture tiers summarized in
-[../README.md](../README.md) (Tiers 1–2).
+aws-target / azure-target are cloud control-plane (`local` channel) and cheap.
+**host-targets** (AWS) and **azure-host-targets** (Azure) are the ones that
+exercise the *host* channels (`ssh` + `winrm`) and the multi-OS
+discover-and-link story — pick whichever cloud you prefer (Azure's resource-group
+hierarchy links most cleanly). For a richer multi-tenant landing zone, managed
+AKS/EKS, or a local `kind` cluster, see the build-your-own progression in
+[../suggestions.md](../suggestions.md).
 
 ## Outputs → register as assets
 
@@ -29,6 +34,11 @@ Each module emits the identifiers you register (or let discovery enumerate):
   group, subscription) and a `settings_summary` of what was set.
 - **aws-target** → `compliant_bucket`, `drift_bucket`, `region` (and
   `register_as_assets` = both names).
+- **host-targets** / **azure-host-targets** → `hosts` (the three hosts + channel
+  + login user + public address), `ssh_private_key_pem` / `ssh_key_file` (the
+  generated key — paste or download), `windows_username` / `windows_password`,
+  and the container they link under (`vpc_id`/`subnet_id` on AWS,
+  `resource_group_name`/`vnet_id` on Azure).
 
 ## Wiring into Prooflayer
 

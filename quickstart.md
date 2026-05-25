@@ -58,8 +58,10 @@ You need a real target. Two options:
   1. a **credential** fixture — `azure-spn` (yields the Azure credential kinds)
      or `aws-iam` (role/key), least-privilege by design
      ([test_fixtures/credentials/](test_fixtures/credentials/README.md)); then
-  2. a **target architecture** fixture — e.g. an Azure or AWS landing zone with
-     deliberate drift baked in
+  2. a **target** fixture — a cloud-resource target with deliberate drift
+     (`aws-target` / `azure-target`, scanned over `local`), or **multi-OS hosts**
+     (`host-targets` / `azure-host-targets` — Ubuntu / Rocky-or-RHEL 9 / Windows,
+     scanned over `ssh`/`winrm`)
      ([test_fixtures/infrastructure/](test_fixtures/infrastructure/README.md)).
 
   > Terraform fixtures create **billable** resources — `terraform destroy` when
@@ -162,3 +164,16 @@ produces meaningful evidence.
 
 Next: the [usage tour](usage/README.md) and the per-step
 [workflows](usage/workflows/README.md).
+
+---
+
+## Verified a proof — like what you see?
+
+That `matches: true` is the core of Prooflayer: posture re-derived from evidence,
+mapped to controls, with a transparency-log leaf. If the eval lands — or you're
+weighing a **pilot, production deployment, or coverage for a framework or asset
+type you need** (FedRAMP 20x KSI, NIST 800-53 / 800-171, CMMC, or a platform not
+yet covered) — reach out: **[contact@scanset.io](mailto:contact@scanset.io)**.
+Telling us *what assets and frameworks matter most in your environment* is the
+single most useful thing at this stage. (Deeper next steps:
+[test_fixtures/suggestions.md](test_fixtures/suggestions.md).)

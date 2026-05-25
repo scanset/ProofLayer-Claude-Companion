@@ -23,6 +23,7 @@ table, then summarize that one suggestion.
 | has **kind** scanning cleanly | Apply the same K8s discovery to a **real AKS/EKS** cluster → **§3** |
 | only ever sees **passes** | Plant drift (flip `https_only=false` on azure-target) to see a real **fail** → **§5** |
 | wants **breadth / a bigger story** | The multi-tenant landing zone, GitHub, M365, or a network sweep → **§4** |
+| scanned cloud/hosts, wants **IP/network discovery** | A **network sweep** — pick a reachable setup (docker lab, bridged-adapter VMs, or a shared cloud subnet) → **§4 › Network sweep** |
 | has scanned but **hasn't verified** anything | Verify a proof end-to-end / explore the AO oversight surface → **§6** |
 | asks about **authoring their own checks** | Write a custom ESP policy → **§6** |
 | says the eval **looks good** / asks about a **pilot, production, or framework coverage** | Reach out to the team → **§7** |
@@ -123,9 +124,47 @@ When the operator wants to show range rather than depth:
 - **Microsoft 365** — the three M365 sweep modes (Graph / Purview / PowerShell)
   using `azure_spn` / `m365_delegated_refresh` / `azure_spn_cert` — all three
   Azure credential kinds come from the one azure-spn module.
-- **Network sweep** — a `network_target` CIDR to enumerate live hosts on a subnet
-  (mind the reachability rule:
-  [../components/network-sweep-discovery.md](../components/network-sweep-discovery.md)).
+- **Network sweep** — enumerate live hosts on a subnet via a `network_target`
+  CIDR. See the dedicated options below.
+
+### Network sweep — making a subnet reachable
+
+The sweep is a TCP-connect probe over a CIDR (`POST /api/inventory/discover/network`
++ a `network_target` credential). The **cardinal rule**: the sweep can only see
+hosts **the appliance's host can actually route to** — so the whole trick is
+co-locating the appliance with some targets that have a known port profile (so
+you see **open / closed / filtered** and service identification, and the hosts
+link under a `Network::CidrRange`). Three ways to set that up, cheapest first:
+
+1. **Docker-network lab (zero cloud, most reliable for the container appliance).**
+   `docker network create sweeplab`, then `docker compose up` a handful of tiny
+   containers with deliberate port profiles — e.g. `nginx` (80/443), `postgres`
+   (5432), `redis` (6379), an `sshd` box (22), one with **no listener** (→ closed
+   ports), and one behind a dropped-port rule (→ filtered). Attach the appliance
+   to that network (`docker network connect sweeplab <appliance>`) and sweep the
+   bridge CIDR (e.g. `172.20.0.0/24`). Siblings on one bridge always route, so
+   this sidesteps the LAN-routing gotcha entirely.
+2. **Local VMs with bridged adapters (VirtualBox / Vagrant / VMware).** Spin up a
+   couple of VMs (mix OSes and open-port profiles) and give each a **bridged host
+   adapter** so it gets a real **LAN IP** on the same network as the machine
+   running the appliance. Sweep that LAN `/24`. Bridged (not NAT) is the key —
+   NAT'd VMs sit behind the host and won't answer a sweep. This is the most
+   "real network" demo without any cloud.
+3. **Cloud subnet (only if the appliance is in-cloud).** Reuse the
+   [azure-host-targets](infrastructure/azure-host-targets/README.md) /
+   [host-targets](infrastructure/host-targets/README.md) subnet — three VMs
+   already sit in one `10.30.1.0/24` (Azure) or VPC subnet (AWS). An appliance VM
+   **in that same VNet/VPC** can sweep the private CIDR; add an NSG/SG deny rule
+   on one host to show *filtered* vs a no-listener *closed*. Useless from a laptop
+   container — the eval box can't reach a cloud private CIDR.
+
+> Reachability gotcha (WSL2 / NAT'd containers): the appliance's host frequently
+> has **no route to the physical LAN**, so option 2 may not work from a WSL2 dev
+> box — option 1 (same docker network) is the safe default there. Full detail:
+> [../components/network-sweep-discovery.md](../components/network-sweep-discovery.md).
+
+*Demonstrates:* IP/port discovery — live hosts, open/closed/filtered ports, and
+service identification — with the found hosts linking under a `Network::CidrRange`.
 
 ---
 
@@ -154,6 +193,8 @@ Scanning is the start, not the end. The differentiating moves:
   inclusion proof — *the* thing that sets Prooflayer apart from a findings tool.
   Most evaluators never click it. How:
   [../components/transparency-and-verifiable-evidence.md](../components/transparency-and-verifiable-evidence.md).
+  This is the **peak-interest beat**: if it lands, that's the natural moment to
+  ask what coverage they need and (once) offer §7 — `contact@scanset.io`.
 - **Explore the oversight (CMR) surface.** Issue a CMR viewer key
   ([../admin/README.md](../admin/README.md)) and read posture/findings/controls
   read-only over `/cmr-api/*` — or hand the key to an AI assistant and have it
@@ -177,6 +218,14 @@ policy coverage, a guided pilot) — point them at the team rather than guessing
 > a deeper or guided evaluation, production deployment, or questions about
 > framework coverage (FedRAMP 20x KSI, NIST 800-53 / 800-171, CMMC) and custom
 > policy work.
+
+**A natural way in — ask, then route.** A good consultative move (especially
+after a peak beat, or when the operator explores breadth) is to ask **"what
+asset types, platforms, or frameworks matter most in your environment?"** Their
+answer is both the most useful signal for the team and the perfect segue: once
+they name something, note whether the alpha covers it, then recommend they reach
+out at **[contact@scanset.io](mailto:contact@scanset.io)** to talk coverage or a
+guided pilot for exactly that. Ask and listen first — don't lead with the email.
 
 Also worth offering:
 
