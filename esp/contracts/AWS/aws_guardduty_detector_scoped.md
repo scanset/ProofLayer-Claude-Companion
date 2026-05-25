@@ -1,0 +1,528 @@
+# aws_guardduty_detector_scoped
+
+## Overview
+
+Scoped-injection variant of [`aws_guardduty_detector`](aws_guardduty_detector.md). The collector, command(s), collected data, and state fields are **identical to the base CTN** (reused verbatim) — this variant only changes *how the `OBJECT` is populated*: at dispatch the `inject_from_bound_asset` placeholder is replaced by one concrete `OBJECT` per resolved asset, filled from that asset's metadata. One policy file scans every matching resource, naming none.
+
+**Binds to:** `AWS::GuardDuty::Detector` — depth-0 (N=1) when bound directly to the asset; fans out via the `link` relation when bound to a container.
+
+---
+
+## Injection / Projection
+
+The `aws_guardduty_detector_scoped` projection fills the injected `OBJECT` fields from the bound asset's metadata:
+
+| OBJECT field | Source | Required |
+| ------------ | ------ | -------- |
+| `detector_id` | `metadata.detector_id` | **Yes** |
+| `region` | `metadata.region` | No |
+
+`target_asset_type`: `AWS::GuardDuty::Detector`. No hardcoded resource id appears in the policy — the binding determines scope.
+
+**Placeholder (in the policy `DEF`):**
+
+```esp
+SET detectors union
+    OBJECT t
+        target `AWS::GuardDuty::Detector`
+        link `contains`
+        behavior inject_from_bound_asset
+    OBJECT_END
+SET_END
+```
+
+---
+
+## Object Fields
+
+| Field         | Type   | Required | Description                                | Example                            |
+| ------------- | ------ | -------- | ------------------------------------------ | ---------------------------------- |
+| `detector_id` | string | **Yes**  | GuardDuty detector ID (exact match)        | `e8a9b38b2782492d908be48c7b3d129a` |
+| `region`      | string | No       | AWS region override (passed as `--region`) | `us-east-1`                        |
+
+- `detector_id` is **required**. If missing, the collector returns Invalid object configuration.
+- If `region` is omitted, the AWS CLI's default region resolution applies.
+
+---
+
+## Commands Executed
+
+All commands are built by the `aws` CLI.
+
+### Command 1: get-detector
+
+Retrieves full detector configuration including status, data sources, features, and tags.
+
+**Resulting command:**
+
+```
+aws guardduty get-detector --detector-id e8a9b38b2782492d908be48c7b3d129a --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "CreatedAt": "2026-03-24T16:02:47.927Z",
+  "FindingPublishingFrequency": "FIFTEEN_MINUTES",
+  "ServiceRole": "arn:aws:iam::486027077516:role/aws-service-role/guardduty.amazonaws.com/AWSServiceRoleForAmazonGuardDuty",
+  "Status": "ENABLED",
+  "UpdatedAt": "2026-03-24T16:02:47.927Z",
+  "DataSources": {
+    "CloudTrail": { "Status": "ENABLED" },
+    "DNSLogs": { "Status": "ENABLED" },
+    "FlowLogs": { "Status": "ENABLED" },
+    "S3Logs": { "Status": "ENABLED" },
+    "Kubernetes": { "AuditLogs": { "Status": "DISABLED" } },
+    "MalwareProtection": {
+      "ScanEc2InstanceWithFindings": { "EbsVolumes": { "Status": "ENABLED" } }
+    }
+  },
+  "Tags": {
+    "Name": "prooflayer-demo-guardduty",
+    "Environment": "demo",
+    "ManagedBy": "terraform"
+  },
+  "Features": [
+    {
+      "Name": "CLOUD_TRAIL",
+      "Status": "ENABLED",
+      "UpdatedAt": "2026-03-26T14:50:11+00:00"
+    },
+    {
+      "Name": "S3_DATA_EVENTS",
+      "Status": "ENABLED",
+      "UpdatedAt": "2026-03-24T16:02:47+00:00"
+    },
+    {
+      "Name": "EBS_MALWARE_PROTECTION",
+      "Status": "ENABLED",
+      "UpdatedAt": "2026-03-24T16:02:47+00:00"
+    },
+    {
+      "Name": "EKS_AUDIT_LOGS",
+      "Status": "DISABLED",
+      "UpdatedAt": "2026-03-24T16:02:47+00:00"
+    }
+  ]
+}
+```
+
+**Response parsing:**
+
+- `Status` → `status` scalar
+- `FindingPublishingFrequency` → `finding_publishing_frequency` scalar
+- `Features` array → one scalar per feature: `feature_<lowercase_name>` = `"ENABLED"` or `"DISABLED"`
+- `Tags` flat map → one scalar per tag: `tag_key:<Key>` = value
+- Full response stored under `Detector` key in RecordData
+
+If `detector_id` not found (non-zero exit with `BadRequestException` or `ResourceNotFoundException`), collector sets `found = false` and returns early.
+
+---
+
+### Command 2: list-publishing-destinations
+
+Retrieves all publishing destinations for the detector.
+
+**Resulting command:**
+
+```
+aws guardduty list-publishing-destinations --detector-id e8a9b38b2782492d908be48c7b3d129a --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "Destinations": [
+    {
+      "DestinationId": "54ce9050413642f432c61e78a28a6f14",
+      "DestinationType": "S3",
+      "Status": "PUBLISHING"
+    }
+  ]
+}
+```
+
+**Response parsing:**
+
+- `Destinations` array → take `first()` element
+- `DestinationType` → `publishing_destination_type` scalar
+- `Status` → `publishing_destination_status` scalar
+- `DestinationId` stored for use in Command 3
+- `has_publishing_destination` derived as `true` if any destination exists
+
+If `Destinations` is empty, `has_publishing_destination` is set to `false` and Command 3 is skipped.
+
+---
+
+### Command 3: describe-publishing-destination _(only when a destination exists)_
+
+Retrieves full destination detail including ARN and KMS key.
+
+**Resulting command:**
+
+```
+aws guardduty describe-publishing-destination --detector-id e8a9b38b2782492d908be48c7b3d129a --destination-id 54ce9050413642f432c61e78a28a6f14 --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "DestinationId": "54ce9050413642f432c61e78a28a6f14",
+  "DestinationType": "S3",
+  "Status": "PUBLISHING",
+  "DestinationProperties": {
+    "DestinationArn": "arn:aws:s3:::prooflayer-demo-security-findings",
+    "KmsKeyArn": "arn:aws:kms:us-east-1:486027077516:key/3c418345-78b1-4687-ac90-399246730cae"
+  },
+  "Tags": {}
+}
+```
+
+**Response parsing:**
+
+- `DestinationProperties.DestinationArn` → `publishing_destination_arn` scalar
+- `DestinationProperties.KmsKeyArn` → `publishing_destination_kms_key_arn` scalar
+- Full response stored under `PublishingDestination` key in RecordData
+
+---
+
+### Error Detection
+
+| Stderr contains                              | Error variant                |
+| -------------------------------------------- | ---------------------------- |
+| `AccessDenied` or `UnauthorizedAccess`       | access-denied     |
+| `InvalidParameterValue` or `ValidationError` | invalid-parameter |
+| `does not exist` or `not found`              | resource-not-found |
+| `BadRequestException`                        | invalid-parameter |
+| Anything else                                | command-failed    |
+
+If the detector does not exist (`ResourceNotFoundException` on Command 1), the collector sets `found = false` and skips Commands 2 and 3.
+
+---
+
+## Collected Data Fields
+
+### Scalar Fields
+
+| Field                                | Type    | Always Present    | Source                                                                   |
+| ------------------------------------ | ------- | ----------------- | ------------------------------------------------------------------------ |
+| `found`                              | boolean | Yes               | Derived — `true` if detector exists                                      |
+| `detector_id`                        | string  | When found        | Echoed from object field                                                 |
+| `status`                             | string  | When found        | get-detector → `Status`                                                  |
+| `finding_publishing_frequency`       | string  | When found        | get-detector → `FindingPublishingFrequency`                              |
+| `feature_cloud_trail`                | string  | When found        | Features array → `CLOUD_TRAIL` entry `Status`                            |
+| `feature_dns_logs`                   | string  | When found        | Features array → `DNS_LOGS` entry `Status`                               |
+| `feature_flow_logs`                  | string  | When found        | Features array → `FLOW_LOGS` entry `Status`                              |
+| `feature_s3_data_events`             | string  | When found        | Features array → `S3_DATA_EVENTS` entry `Status`                         |
+| `feature_ebs_malware_protection`     | string  | When found        | Features array → `EBS_MALWARE_PROTECTION` entry `Status`                 |
+| `feature_eks_audit_logs`             | string  | When found        | Features array → `EKS_AUDIT_LOGS` entry `Status`                         |
+| `feature_rds_login_events`           | string  | When found        | Features array → `RDS_LOGIN_EVENTS` entry `Status`                       |
+| `feature_eks_runtime_monitoring`     | string  | When found        | Features array → `EKS_RUNTIME_MONITORING` entry `Status`                 |
+| `feature_lambda_network_logs`        | string  | When found        | Features array → `LAMBDA_NETWORK_LOGS` entry `Status`                    |
+| `feature_runtime_monitoring`         | string  | When found        | Features array → `RUNTIME_MONITORING` entry `Status`                     |
+| `has_publishing_destination`         | boolean | When found        | Derived — `true` if Destinations list is non-empty                       |
+| `publishing_destination_type`        | string  | When dest. exists | list-publishing-destinations → `Destinations[0].DestinationType`         |
+| `publishing_destination_status`      | string  | When dest. exists | list-publishing-destinations → `Destinations[0].Status`                  |
+| `publishing_destination_arn`         | string  | When dest. exists | describe-publishing-destination → `DestinationProperties.DestinationArn` |
+| `publishing_destination_kms_key_arn` | string  | When dest. exists | describe-publishing-destination → `DestinationProperties.KmsKeyArn`      |
+| `tag_key:<Key>`                      | string  | When found        | get-detector → `Tags` flat map, one field per tag                        |
+
+Feature scalar fields use lowercase with underscores, e.g. `CLOUD_TRAIL` → `feature_cloud_trail`. Features not present in the API response result in absent fields.
+
+### RecordData Field
+
+| Field      | Type       | Always Present | Description                                                     |
+| ---------- | ---------- | -------------- | --------------------------------------------------------------- |
+| `resource` | RecordData | Yes            | Merged detector + destination config. Empty `{}` when not found |
+
+---
+
+## RecordData Structure
+
+The `resource` field is built by merging all API responses under named keys:
+
+| Key | Source |
+| --- | ------ |
+| `Detector` | get-detector |
+| `PublishingDestination` | describe-publishing-destination (or {}) |
+
+### Detector paths (from get-detector)
+
+| Path                                                                                   | Type   | Example Value                 |
+| -------------------------------------------------------------------------------------- | ------ | ----------------------------- |
+| `Detector.Status`                                                                      | string | `"ENABLED"`                   |
+| `Detector.FindingPublishingFrequency`                                                  | string | `"FIFTEEN_MINUTES"`           |
+| `Detector.DataSources.CloudTrail.Status`                                               | string | `"ENABLED"`                   |
+| `Detector.DataSources.DNSLogs.Status`                                                  | string | `"ENABLED"`                   |
+| `Detector.DataSources.FlowLogs.Status`                                                 | string | `"ENABLED"`                   |
+| `Detector.DataSources.S3Logs.Status`                                                   | string | `"ENABLED"`                   |
+| `Detector.DataSources.Kubernetes.AuditLogs.Status`                                     | string | `"DISABLED"`                  |
+| `Detector.DataSources.MalwareProtection.ScanEc2InstanceWithFindings.EbsVolumes.Status` | string | `"ENABLED"`                   |
+| `Detector.Features.0.Name`                                                             | string | `"CLOUD_TRAIL"`               |
+| `Detector.Features.0.Status`                                                           | string | `"ENABLED"`                   |
+| `Detector.Tags.Name`                                                                   | string | `"prooflayer-demo-guardduty"` |
+| `Detector.Tags.Environment`                                                            | string | `"demo"`                      |
+
+### PublishingDestination paths (from describe-publishing-destination)
+
+| Path                                                         | Type   | Example Value                                      |
+| ------------------------------------------------------------ | ------ | -------------------------------------------------- |
+| `PublishingDestination.DestinationType`                      | string | `"S3"`                                             |
+| `PublishingDestination.Status`                               | string | `"PUBLISHING"`                                     |
+| `PublishingDestination.DestinationProperties.DestinationArn` | string | `"arn:aws:s3:::prooflayer-demo-security-findings"` |
+| `PublishingDestination.DestinationProperties.KmsKeyArn`      | string | `"arn:aws:kms:us-east-1:486027077516:key/..."`     |
+
+---
+
+## State Fields
+
+### Scalar State Fields
+
+| State Field                          | Type    | Allowed Operations              | Maps To Collected Field              |
+| ------------------------------------ | ------- | ------------------------------- | ------------------------------------ |
+| `found`                              | boolean | `=`, `!=`                       | `found`                              |
+| `detector_id`                        | string  | `=`, `!=`                       | `detector_id`                        |
+| `status`                             | string  | `=`, `!=`                       | `status`                             |
+| `finding_publishing_frequency`       | string  | `=`, `!=`                       | `finding_publishing_frequency`       |
+| `feature_cloud_trail`                | string  | `=`, `!=`                       | `feature_cloud_trail`                |
+| `feature_dns_logs`                   | string  | `=`, `!=`                       | `feature_dns_logs`                   |
+| `feature_flow_logs`                  | string  | `=`, `!=`                       | `feature_flow_logs`                  |
+| `feature_s3_data_events`             | string  | `=`, `!=`                       | `feature_s3_data_events`             |
+| `feature_ebs_malware_protection`     | string  | `=`, `!=`                       | `feature_ebs_malware_protection`     |
+| `feature_eks_audit_logs`             | string  | `=`, `!=`                       | `feature_eks_audit_logs`             |
+| `feature_rds_login_events`           | string  | `=`, `!=`                       | `feature_rds_login_events`           |
+| `feature_eks_runtime_monitoring`     | string  | `=`, `!=`                       | `feature_eks_runtime_monitoring`     |
+| `feature_lambda_network_logs`        | string  | `=`, `!=`                       | `feature_lambda_network_logs`        |
+| `feature_runtime_monitoring`         | string  | `=`, `!=`                       | `feature_runtime_monitoring`         |
+| `has_publishing_destination`         | boolean | `=`, `!=`                       | `has_publishing_destination`         |
+| `publishing_destination_type`        | string  | `=`, `!=`                       | `publishing_destination_type`        |
+| `publishing_destination_status`      | string  | `=`, `!=`                       | `publishing_destination_status`      |
+| `publishing_destination_arn`         | string  | `=`, `!=`, `contains`, `starts` | `publishing_destination_arn`         |
+| `publishing_destination_kms_key_arn` | string  | `=`, `!=`, `contains`, `starts` | `publishing_destination_kms_key_arn` |
+| `tag_key:<Key>`                      | string  | `=`, `!=`, `contains`           | `tag_key:<Key>` (dynamic)            |
+
+### Record Checks
+
+| State Field | Maps To Collected Field | Description                                             |
+| ----------- | ----------------------- | ------------------------------------------------------- |
+| `record`    | `resource`              | Deep inspection of merged detector + destination config |
+
+---
+
+## Collection Strategy
+
+| Property                     | Value                              |
+| ---------------------------- | ---------------------------------- |
+| CTN Type               | `aws_guardduty_detector`           |
+| Collection Mode              | Content                            |
+| Required Capabilities        | `aws_cli`, `guardduty_read`        |
+| Expected Collection Time     | ~4000ms (two or three API calls)   |
+| Memory Usage                 | ~5MB                               |
+| Network Intensive            | Yes                                |
+| CPU Intensive                | No                                 |
+| Requires Elevated Privileges | No                                 |
+| Batch Collection             | No                                 |
+
+### Authentication
+
+The `aws` CLI binary is invoked through a hardened command wrapper that clears the inherited environment; it relies on the AWS CLI's default credential chain:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+2. Shared credentials file (`~/.aws/credentials`)
+3. IAM role (EC2, ECS, Lambda)
+4. IRSA (EKS)
+
+### Required IAM Permissions
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "guardduty:GetDetector",
+    "guardduty:ListPublishingDestinations",
+    "guardduty:DescribePublishingDestination"
+  ],
+  "Resource": "*"
+}
+```
+
+### Collection Method Traceability
+
+| Field       | Value                                                                                           |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| method_type | `ApiCall`                                                                                       |
+| description | `"Query GuardDuty detector configuration and publishing destination via AWS CLI"`               |
+| target      | `"guardduty:<detector_id>"`                                                                     |
+| command     | `"aws guardduty get-detector + list-publishing-destinations + describe-publishing-destination"` |
+| inputs      | `detector_id` (always), `region` (when provided)                                                |
+
+---
+
+## ESP Examples
+
+### Detector enabled with required features active
+
+```esp
+OBJECT main_detector
+    detector_id `e8a9b38b2782492d908be48c7b3d129a`
+    region `us-east-1`
+OBJECT_END
+
+STATE detector_compliant
+    found boolean = true
+    status string = `ENABLED`
+    finding_publishing_frequency string = `FIFTEEN_MINUTES`
+    feature_cloud_trail string = `ENABLED`
+    feature_s3_data_events string = `ENABLED`
+    feature_ebs_malware_protection string = `ENABLED`
+    feature_flow_logs string = `ENABLED`
+STATE_END
+
+CTN aws_guardduty_detector
+    TEST all all AND
+    STATE_REF detector_compliant
+    OBJECT_REF main_detector
+CTN_END
+```
+
+### Publishing destination validated
+
+```esp
+OBJECT main_detector
+    detector_id `e8a9b38b2782492d908be48c7b3d129a`
+    region `us-east-1`
+OBJECT_END
+
+STATE destination_compliant
+    found boolean = true
+    has_publishing_destination boolean = true
+    publishing_destination_type string = `S3`
+    publishing_destination_status string = `PUBLISHING`
+    publishing_destination_arn string starts `arn:aws:s3:::prooflayer-demo`
+    publishing_destination_kms_key_arn string starts `arn:aws:kms:us-east-1:486027077516:`
+STATE_END
+
+CTN aws_guardduty_detector
+    TEST all all AND
+    STATE_REF destination_compliant
+    OBJECT_REF main_detector
+CTN_END
+```
+
+### Tag compliance check
+
+```esp
+OBJECT main_detector
+    detector_id `e8a9b38b2782492d908be48c7b3d129a`
+    region `us-east-1`
+OBJECT_END
+
+STATE tagged_correctly
+    found boolean = true
+    tag_key:ManagedBy string = `terraform`
+    tag_key:Environment string = `demo`
+STATE_END
+
+CTN aws_guardduty_detector
+    TEST all all AND
+    STATE_REF tagged_correctly
+    OBJECT_REF main_detector
+CTN_END
+```
+
+### Record checks for deep inspection
+
+```esp
+OBJECT main_detector
+    detector_id `e8a9b38b2782492d908be48c7b3d129a`
+    region `us-east-1`
+OBJECT_END
+
+STATE detector_deep
+    found boolean = true
+    record
+        field Detector.Status string = `ENABLED`
+        field Detector.FindingPublishingFrequency string = `FIFTEEN_MINUTES`
+        field Detector.DataSources.S3Logs.Status string = `ENABLED`
+        field Detector.DataSources.MalwareProtection.ScanEc2InstanceWithFindings.EbsVolumes.Status string = `ENABLED`
+        field PublishingDestination.Status string = `PUBLISHING`
+        field PublishingDestination.DestinationProperties.DestinationArn string = `arn:aws:s3:::prooflayer-demo-security-findings`
+    record_end
+STATE_END
+
+CTN aws_guardduty_detector
+    TEST all all AND
+    STATE_REF detector_deep
+    OBJECT_REF main_detector
+CTN_END
+```
+
+---
+
+## Error Conditions
+
+| Condition                                        | Error Type                   | Outcome                            | Notes                                                      |
+| ------------------------------------------------ | ---------------------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Detector not found (`ResourceNotFoundException`) | N/A (not an error)           | `found=false`                      | `resource` set to empty `{}`, scalar fields absent         |
+| `detector_id` missing from object                | Invalid object configuration | Error                              | Required field — collector returns immediately             |
+| `aws` CLI binary not found                       | Collection failed           | Error                              | the `aws` CLI binary fails to spawn                       |
+| Invalid AWS credentials                          | Collection failed           | Error                              | CLI returns non-zero exit with credential error            |
+| IAM access denied                                | Collection failed           | Error                              | stderr matched `AccessDenied` or `UnauthorizedAccess`      |
+| No publishing destinations                       | N/A                          | `has_publishing_destination=false` | Command 3 skipped                                          |
+| `describe-publishing-destination` fails          | Collection failed           | Error                              | Third call fails after destination was found in list       |
+| JSON parse failure                               | Collection failed           | Error                              | the JSON in stdout cannot be parsed                     |
+| Incompatible CTN type                            | CTN type mismatch      | Error                              | CTN type must match `aws_guardduty_detector` |
+
+### Validation Behavior
+
+Validation requires the `found` field to be present in collected data. If missing, validation fails with a missing-data-field error.
+
+When `found` is `false`:
+
+- Scalar field checks against missing fields will **fail** (field not collected)
+- Record checks will **fail** with message `"GuardDuty detector not found, cannot validate record checks"`
+
+---
+
+## Related CTN Types
+
+| CTN Type         | Relationship                                                               |
+| ---------------- | -------------------------------------------------------------------------- |
+| `aws_s3_bucket`  | GuardDuty publishes findings to S3; validate the destination bucket config |
+| `aws_cloudtrail` | CloudTrail is a GuardDuty data source; validate the trail is active        |
+
+---
+
+## Scoped ESP Policy Example
+
+```esp
+DEF
+    SET guardduty_set union
+        OBJECT t
+            target `AWS::GuardDuty::Detector`
+            link `contains`
+            behavior inject_from_bound_asset
+        OBJECT_END
+    SET_END
+
+    STATE guardduty_check
+        found boolean = true
+        status string = `ENABLED`
+        feature_s3_data_events string = `ENABLED`
+        feature_ebs_malware_protection string = `ENABLED`
+        has_publishing_destination boolean = true
+    STATE_END
+
+    CRI AND
+        CTN aws_guardduty_detector_scoped
+            TEST all all AND
+            STATE_REF guardduty_check
+            SET_REF guardduty_set
+        CTN_END
+    CRI_END
+DEF_END
+```
+

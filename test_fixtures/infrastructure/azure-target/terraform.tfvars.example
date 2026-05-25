@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars and edit.
+# subscription_id     = null             # null = current `az login` subscription
+# resource_group_name = "prooflayer-test-rg"
+# location            = "eastus"
+# Flip these to PLANT drift (so the storage policy fails):
+# https_only = false                     # compliant default is true
+# min_tls    = "TLS1_0"                  # compliant default is "TLS1_2"

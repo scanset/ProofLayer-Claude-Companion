@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and edit. Defaults work as-is.
+# region      = "us-east-1"
+# profile     = ""                       # blank = ambient AWS credentials
+# name_prefix = "prooflayer-eval"

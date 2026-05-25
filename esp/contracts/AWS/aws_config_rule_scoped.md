@@ -1,0 +1,256 @@
+# aws_config_rule_scoped
+
+## Overview
+
+Scoped-injection variant of [`aws_config_rule`](aws_config_rule.md). The collector, command(s), collected data, and state fields are **identical to the base CTN** (reused verbatim) — this variant only changes *how the `OBJECT` is populated*: at dispatch the `inject_from_bound_asset` placeholder is replaced by one concrete `OBJECT` per resolved asset, filled from that asset's metadata. One policy file scans every matching resource, naming none.
+
+**Binds to:** `AWS::Config::ConfigRule` — depth-0 (N=1) when bound directly to the asset; fans out via the `link` relation when bound to a container.
+
+---
+
+## Injection / Projection
+
+The `aws_config_rule_scoped` projection fills the injected `OBJECT` fields from the bound asset's metadata:
+
+| OBJECT field | Source | Required |
+| ------------ | ------ | -------- |
+| `rule_name` | `metadata.rule_name` | **Yes** |
+| `region` | `metadata.region` | No |
+
+`target_asset_type`: `AWS::Config::ConfigRule`. No hardcoded resource id appears in the policy — the binding determines scope.
+
+**Placeholder (in the policy `DEF`):**
+
+```esp
+SET configrules union
+    OBJECT t
+        target `AWS::Config::ConfigRule`
+        link `contains`
+        behavior inject_from_bound_asset
+    OBJECT_END
+SET_END
+```
+
+---
+
+## Object Fields
+
+| Field       | Type   | Required | Description                                | Example                         |
+| ----------- | ------ | -------- | ------------------------------------------ | ------------------------------- |
+| `rule_name` | string | **Yes**  | Config rule name (exact match)             | `prooflayer-demo-ebs-encrypted` |
+| `region`    | string | No       | AWS region override (passed as `--region`) | `us-east-1`                     |
+
+---
+
+## Commands Executed
+
+### Command 1: describe-config-rules
+
+```
+aws configservice describe-config-rules --config-rule-names prooflayer-demo-ebs-encrypted --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "ConfigRules": [
+    {
+      "ConfigRuleName": "prooflayer-demo-ebs-encrypted",
+      "ConfigRuleArn": "arn:aws:config:us-east-1:486027077516:config-rule/config-rule-yg7y5h",
+      "ConfigRuleId": "config-rule-yg7y5h",
+      "Description": "EBS volumes must be encrypted - KSI-SVC-VRI",
+      "Source": {
+        "Owner": "AWS",
+        "SourceIdentifier": "ENCRYPTED_VOLUMES"
+      },
+      "ConfigRuleState": "ACTIVE"
+    }
+  ]
+}
+```
+
+### Command 2: describe-compliance-by-config-rule
+
+```
+aws configservice describe-compliance-by-config-rule --config-rule-names prooflayer-demo-ebs-encrypted --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "ComplianceByConfigRules": [
+    {
+      "ConfigRuleName": "prooflayer-demo-ebs-encrypted",
+      "Compliance": {
+        "ComplianceType": "COMPLIANT"
+      }
+    }
+  ]
+}
+```
+
+**Compliance type values:** `COMPLIANT`, `NON_COMPLIANT`, `NOT_APPLICABLE`, `INSUFFICIENT_DATA`
+
+`INSUFFICIENT_DATA` means the rule has not yet evaluated any resources — typically seen shortly after rule creation.
+
+---
+
+## Collected Data Fields
+
+### Scalar Fields
+
+| Field               | Type    | Always Present | Source                                                       |
+| ------------------- | ------- | -------------- | ------------------------------------------------------------ |
+| `found`             | boolean | Yes            | Derived — `true` if rule found                               |
+| `rule_name`         | string  | When found     | `ConfigRuleName`                                             |
+| `rule_state`        | string  | When found     | `ConfigRuleState` — `ACTIVE`, `DELETING`, `DELETING_RESULTS` |
+| `source_owner`      | string  | When found     | `Source.Owner` — `AWS` or `CUSTOM_LAMBDA`                    |
+| `source_identifier` | string  | When found     | `Source.SourceIdentifier` — AWS managed rule identifier      |
+| `description`       | string  | When found     | `Description`                                                |
+| `compliance_type`   | string  | When found     | `Compliance.ComplianceType` from second call                 |
+
+### RecordData Field
+
+| Field      | Type       | Always Present | Description                                                       |
+| ---------- | ---------- | -------------- | ----------------------------------------------------------------- |
+| `resource` | RecordData | Yes            | Merged rule config + compliance result. Empty `{}` when not found |
+
+---
+
+## RecordData Structure
+
+```
+Rule.ConfigRuleName          → "prooflayer-demo-ebs-encrypted"
+Rule.ConfigRuleArn           → "arn:aws:config:us-east-1:..."
+Rule.ConfigRuleState         → "ACTIVE"
+Rule.Source.Owner            → "AWS"
+Rule.Source.SourceIdentifier → "ENCRYPTED_VOLUMES"
+Rule.Description             → "EBS volumes must be encrypted - KSI-SVC-VRI"
+Compliance.Compliance.ComplianceType → "COMPLIANT"
+```
+
+---
+
+## State Fields
+
+| State Field         | Type       | Allowed Operations              | Maps To Collected Field |
+| ------------------- | ---------- | ------------------------------- | ----------------------- |
+| `found`             | boolean    | `=`, `!=`                       | `found`                 |
+| `rule_name`         | string     | `=`, `!=`                       | `rule_name`             |
+| `rule_state`        | string     | `=`, `!=`                       | `rule_state`            |
+| `source_owner`      | string     | `=`, `!=`                       | `source_owner`          |
+| `source_identifier` | string     | `=`, `!=`                       | `source_identifier`     |
+| `description`       | string     | `=`, `!=`, `contains`, `starts` | `description`           |
+| `compliance_type`   | string     | `=`, `!=`                       | `compliance_type`       |
+| `record`            | RecordData | (record checks)                 | `resource`              |
+
+---
+
+## Collection Strategy
+
+| Property                 | Value                       |
+| ------------------------ | --------------------------- |
+| CTN Type           | `aws_config_rule`           |
+| Collection Mode          | Content                     |
+| Required Capabilities    | `aws_cli`, `config_read`    |
+| Expected Collection Time | ~2000ms (two API calls)     |
+| Memory Usage             | ~2MB                        |
+| Batch Collection         | No                          |
+
+### Required IAM Permissions
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "config:DescribeConfigRules",
+    "config:DescribeComplianceByConfigRule"
+  ],
+  "Resource": "*"
+}
+```
+
+---
+
+## ESP Examples
+
+### Config rule active and compliant (KSI-CMT-VTD, KSI-MLA-LET)
+
+```esp
+OBJECT ebs_encrypted_rule
+    rule_name `prooflayer-demo-ebs-encrypted`
+    region `us-east-1`
+OBJECT_END
+
+STATE rule_compliant
+    found boolean = true
+    rule_state string = `ACTIVE`
+    compliance_type string = `COMPLIANT`
+    source_owner string = `AWS`
+    source_identifier string = `ENCRYPTED_VOLUMES`
+STATE_END
+
+CTN aws_config_rule
+    TEST all all AND
+    STATE_REF rule_compliant
+    OBJECT_REF ebs_encrypted_rule
+CTN_END
+```
+
+---
+
+## Error Conditions
+
+| Condition                                    | Error Type                   | Outcome       |
+| -------------------------------------------- | ---------------------------- | ------------- |
+| Rule not found (`NoSuchConfigRuleException`) | N/A (not an error)           | `found=false` |
+| `rule_name` missing from object              | Invalid object configuration | Error         |
+| IAM access denied                            | Collection failed           | Error         |
+| Compliance call fails after rule found       | Collection failed           | Error         |
+| Incompatible CTN type                        | CTN type mismatch      | Error         |
+
+---
+
+## Related CTN Types
+
+| CTN Type              | Relationship                                            |
+| --------------------- | ------------------------------------------------------- |
+| `aws_config_recorder` | Recorder must be active for rules to evaluate           |
+| `aws_ebs_volume`      | `ENCRYPTED_VOLUMES` rule validates EBS encryption       |
+| `aws_s3_bucket`       | `S3_BUCKET_LEVEL_PUBLIC_ACCESS_PROHIBITED` validates S3 |
+
+---
+
+## Scoped ESP Policy Example
+
+```esp
+DEF
+    SET ebs_encrypted_rule_set union
+        OBJECT t
+            target `AWS::Config::ConfigRule`
+            link `contains`
+            behavior inject_from_bound_asset
+        OBJECT_END
+    SET_END
+
+    # All rules: ACTIVE and COMPLIANT
+    STATE rule_compliant
+        found boolean = true
+        rule_state string = `ACTIVE`
+        compliance_type string = `COMPLIANT`
+        source_owner string = `AWS`
+    STATE_END
+
+    CRI AND
+        CTN aws_config_rule_scoped
+            TEST all all AND
+            STATE_REF rule_compliant
+            SET_REF ebs_encrypted_rule_set
+        CTN_END
+
+    CRI_END
+DEF_END
+```
+

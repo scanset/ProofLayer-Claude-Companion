@@ -1,0 +1,316 @@
+# aws_kms_key_scoped
+
+## Overview
+
+Scoped-injection variant of [`aws_kms_key`](aws_kms_key.md). The collector, command(s), collected data, and state fields are **identical to the base CTN** (reused verbatim) — this variant only changes *how the `OBJECT` is populated*: at dispatch the `inject_from_bound_asset` placeholder is replaced by one concrete `OBJECT` per resolved asset, filled from that asset's metadata. One policy file scans every matching resource, naming none.
+
+**Binds to:** `AWS::KMS::Key` — depth-0 (N=1) when bound directly to the asset; fans out via the `link` relation when bound to a container.
+
+---
+
+## Injection / Projection
+
+The `aws_kms_key_scoped` projection fills the injected `OBJECT` fields from the bound asset's metadata:
+
+| OBJECT field | Source | Required |
+| ------------ | ------ | -------- |
+| `key_id` | `metadata.key_id` | **Yes** |
+| `region` | `metadata.region` | No |
+
+`target_asset_type`: `AWS::KMS::Key`. No hardcoded resource id appears in the policy — the binding determines scope.
+
+**Placeholder (in the policy `DEF`):**
+
+```esp
+SET keys union
+    OBJECT t
+        target `AWS::KMS::Key`
+        link `contains`
+        behavior inject_from_bound_asset
+    OBJECT_END
+SET_END
+```
+
+---
+
+## Object Fields
+
+| Field    | Type   | Required | Description                                | Example                                |
+| -------- | ------ | -------- | ------------------------------------------ | -------------------------------------- |
+| `key_id` | string | **Yes**  | KMS key ID (UUID) or ARN — NOT an alias    | `3c418345-78b1-4687-ac90-399246730cae` |
+| `region` | string | No       | AWS region override (passed as `--region`) | `us-east-1`                            |
+
+---
+
+## Commands Executed
+
+### Command 1: describe-key
+
+**Resulting command:**
+
+```
+aws kms describe-key --key-id 3c418345-78b1-4687-ac90-399246730cae --output json
+```
+
+**Sample response (abbreviated):**
+
+```json
+{
+  "KeyMetadata": {
+    "KeyId": "3c418345-78b1-4687-ac90-399246730cae",
+    "Arn": "arn:aws:kms:us-east-1:486027077516:key/3c418345-78b1-4687-ac90-399246730cae",
+    "Enabled": true,
+    "Description": "ProofLayer secrets encryption key",
+    "KeyUsage": "ENCRYPT_DECRYPT",
+    "KeyState": "Enabled",
+    "Origin": "AWS_KMS",
+    "KeyManager": "CUSTOMER",
+    "KeySpec": "SYMMETRIC_DEFAULT",
+    "MultiRegion": false
+  }
+}
+```
+
+---
+
+### Command 2: get-key-rotation-status
+
+**Resulting command:**
+
+```
+aws kms get-key-rotation-status --key-id 3c418345-78b1-4687-ac90-399246730cae --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "KeyRotationEnabled": true,
+  "KeyId": "arn:aws:kms:us-east-1:486027077516:key/3c418345-78b1-4687-ac90-399246730cae",
+  "RotationPeriodInDays": 90,
+  "NextRotationDate": "2026-06-21T22:08:43.336000+00:00"
+}
+```
+
+---
+
+### Command 3: get-key-policy
+
+**Resulting command:**
+
+```
+aws kms get-key-policy --key-id 3c418345-78b1-4687-ac90-399246730cae --policy-name default --output json
+```
+
+**Sample response (abbreviated):**
+
+```json
+{
+  "Policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"RootAccountFullAccess\",...},{\"Sid\":\"SecretsManagerAccess\",...},...]}",
+  "PolicyName": "default"
+}
+```
+
+The `Policy` field is a JSON-encoded string. The collector parses it and stores the structured policy under the `KeyPolicy` key in RecordData.
+
+---
+
+## Collected Data Fields
+
+### Scalar Fields
+
+| Field                     | Type    | Always Present   | Source                                |
+| ------------------------- | ------- | ---------------- | ------------------------------------- |
+| `found`                   | boolean | Yes              | Derived — `true` if key found         |
+| `key_id`                  | string  | When found       | `KeyMetadata.KeyId`                   |
+| `key_arn`                 | string  | When found       | `KeyMetadata.Arn`                     |
+| `enabled`                 | boolean | When found       | `KeyMetadata.Enabled`                 |
+| `key_state`               | string  | When found       | `KeyMetadata.KeyState`                |
+| `key_usage`               | string  | When found       | `KeyMetadata.KeyUsage`                |
+| `key_spec`                | string  | When found       | `KeyMetadata.KeySpec`                 |
+| `key_manager`             | string  | When found       | `KeyMetadata.KeyManager`              |
+| `origin`                  | string  | When found       | `KeyMetadata.Origin`                  |
+| `multi_region`            | boolean | When found       | `KeyMetadata.MultiRegion`             |
+| `description`             | string  | When found       | `KeyMetadata.Description`             |
+| `rotation_enabled`        | boolean | When found       | `RotationStatus.KeyRotationEnabled`   |
+| `rotation_period_in_days` | integer | When rotation on | `RotationStatus.RotationPeriodInDays` |
+
+### RecordData Field
+
+| Field      | Type       | Always Present | Description                                               |
+| ---------- | ---------- | -------------- | --------------------------------------------------------- |
+| `resource` | RecordData | Yes            | Merged key metadata + rotation status + parsed key policy |
+
+---
+
+## RecordData Structure
+
+```
+KeyMetadata.KeyId                         → "3c418345-78b1-4687-ac90-399246730cae"
+KeyMetadata.Enabled                       → true
+KeyMetadata.KeyState                      → "Enabled"
+KeyMetadata.KeyUsage                      → "ENCRYPT_DECRYPT"
+KeyMetadata.KeyManager                    → "CUSTOMER"
+KeyMetadata.KeySpec                       → "SYMMETRIC_DEFAULT"
+KeyMetadata.Origin                        → "AWS_KMS"
+KeyMetadata.MultiRegion                   → false
+RotationStatus.KeyRotationEnabled         → true
+RotationStatus.RotationPeriodInDays       → 90
+KeyPolicy.Version                         → "2012-10-17"
+KeyPolicy.Statement.0.Sid                 → "RootAccountFullAccess"
+KeyPolicy.Statement.0.Effect              → "Allow"
+KeyPolicy.Statement.0.Principal.AWS       → "arn:aws:iam::486027077516:root"
+KeyPolicy.Statement.1.Sid                 → "SecretsManagerAccess"
+KeyPolicy.Statement.1.Principal.Service   → "secretsmanager.amazonaws.com"
+KeyPolicy.Statement.2.Sid                 → "EC2RoleAccess"
+KeyPolicy.Statement.2.Principal.AWS       → "arn:aws:iam::486027077516:role/prooflayer-demo-ec2-role"
+KeyPolicy.Statement.3.Sid                 → "CloudWatchLogsKMS"
+KeyPolicy.Statement.4.Sid                 → "CloudTrailKMS"
+KeyPolicy.Statement.5.Sid                 → "GuardDutyKMS"
+```
+
+---
+
+## State Fields
+
+| State Field               | Type       | Allowed Operations              | Maps To Collected Field   |
+| ------------------------- | ---------- | ------------------------------- | ------------------------- |
+| `found`                   | boolean    | `=`, `!=`                       | `found`                   |
+| `key_id`                  | string     | `=`, `!=`                       | `key_id`                  |
+| `key_arn`                 | string     | `=`, `!=`, `contains`, `starts` | `key_arn`                 |
+| `enabled`                 | boolean    | `=`, `!=`                       | `enabled`                 |
+| `key_state`               | string     | `=`, `!=`                       | `key_state`               |
+| `key_usage`               | string     | `=`, `!=`                       | `key_usage`               |
+| `key_spec`                | string     | `=`, `!=`                       | `key_spec`                |
+| `key_manager`             | string     | `=`, `!=`                       | `key_manager`             |
+| `origin`                  | string     | `=`, `!=`                       | `origin`                  |
+| `multi_region`            | boolean    | `=`, `!=`                       | `multi_region`            |
+| `description`             | string     | `=`, `!=`, `contains`           | `description`             |
+| `rotation_enabled`        | boolean    | `=`, `!=`                       | `rotation_enabled`        |
+| `rotation_period_in_days` | int        | `=`, `!=`, `<=`, `<`, `>=`, `>` | `rotation_period_in_days` |
+| `record`                  | RecordData | (record checks)                 | `resource`                |
+
+---
+
+## Collection Strategy
+
+| Property                     | Value                     |
+| ---------------------------- | ------------------------- |
+| CTN Type               | `aws_kms_key`             |
+| Collection Mode              | Content                   |
+| Required Capabilities        | `aws_cli`, `kms_read`     |
+| Expected Collection Time     | ~3000ms (three API calls) |
+| Memory Usage                 | ~2MB                      |
+| Network Intensive            | Yes                       |
+| CPU Intensive                | No                        |
+| Requires Elevated Privileges | No                        |
+| Batch Collection             | No                        |
+
+### Required IAM Permissions
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["kms:DescribeKey", "kms:GetKeyRotationStatus", "kms:GetKeyPolicy"],
+  "Resource": "*"
+}
+```
+
+---
+
+## ESP Examples
+
+### KMS key enabled with rotation (KSI-AFR-UCM, KSI-SCR-MIT)
+
+```esp
+OBJECT secrets_kms_key
+    key_id `3c418345-78b1-4687-ac90-399246730cae`
+    region `us-east-1`
+OBJECT_END
+
+STATE kms_key_compliant
+    found boolean = true
+    enabled boolean = true
+    key_state string = `Enabled`
+    key_manager string = `CUSTOMER`
+    key_usage string = `ENCRYPT_DECRYPT`
+    rotation_enabled boolean = true
+    rotation_period_in_days int <= 90
+    multi_region boolean = false
+STATE_END
+
+CTN aws_kms_key
+    TEST all all AND
+    STATE_REF kms_key_compliant
+    OBJECT_REF secrets_kms_key
+CTN_END
+```
+
+### Key policy record checks — validate service principals
+
+```esp
+STATE kms_policy_valid
+    found boolean = true
+    record
+        field KeyPolicy.Statement.0.Sid string = `RootAccountFullAccess`
+        field KeyPolicy.Statement.1.Sid string = `SecretsManagerAccess`
+        field KeyPolicy.Statement.1.Principal.Service string = `secretsmanager.amazonaws.com`
+        field KeyPolicy.Statement.2.Sid string = `EC2RoleAccess`
+        field RotationStatus.KeyRotationEnabled boolean = true
+        field RotationStatus.RotationPeriodInDays int = 90
+    record_end
+STATE_END
+```
+
+---
+
+## Error Conditions
+
+| Condition                    | Error Type                   | Outcome       |
+| ---------------------------- | ---------------------------- | ------------- |
+| Key not found                | N/A (not an error)           | `found=false` |
+| Alias used as `key_id`       | Collection failed           | Error         |
+| `key_id` missing from object | Invalid object configuration | Error         |
+| IAM access denied            | Collection failed           | Error         |
+| Incompatible CTN type        | CTN type mismatch      | Error         |
+
+---
+
+## Related CTN Types
+
+| CTN Type                    | Relationship                                             |
+| --------------------------- | -------------------------------------------------------- |
+| `aws_secretsmanager_secret` | Secrets are encrypted with this KMS key                  |
+| `aws_s3_bucket`             | S3 buckets use this key for SSE-KMS encryption           |
+| `aws_backup_vault`          | Backup vaults use this key for recovery point encryption |
+| `aws_ebs_volume`            | EBS volumes use this key for encryption at rest          |
+
+---
+
+## Scoped ESP Policy Example
+
+```esp
+DEF
+    SET keys union
+        OBJECT t
+            target `AWS::KMS::Key`
+            link `contains`
+            behavior inject_from_bound_asset
+        OBJECT_END
+    SET_END
+
+    STATE st_rotation_enabled
+        found boolean = true
+        rotation_enabled boolean = true
+    STATE_END
+
+    CRI AND
+        CTN aws_kms_key_scoped
+            TEST all all AND
+            STATE_REF st_rotation_enabled
+            SET_REF keys
+        CTN_END
+    CRI_END
+DEF_END
+```
+

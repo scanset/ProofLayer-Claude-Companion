@@ -1,0 +1,372 @@
+# aws_network_acl_scoped
+
+## Overview
+
+Scoped-injection variant of [`aws_network_acl`](aws_network_acl.md). The collector, command(s), collected data, and state fields are **identical to the base CTN** (reused verbatim) — this variant only changes *how the `OBJECT` is populated*: at dispatch the `inject_from_bound_asset` placeholder is replaced by one concrete `OBJECT` per resolved asset, filled from that asset's metadata. One policy file scans every matching resource, naming none.
+
+**Binds to:** `AWS::EC2::NetworkAcl` — depth-0 (N=1) when bound directly to the asset; fans out via the `link` relation when bound to a container.
+
+---
+
+## Injection / Projection
+
+The `aws_network_acl_scoped` projection fills the injected `OBJECT` fields from the bound asset's metadata:
+
+| OBJECT field | Source | Required |
+| ------------ | ------ | -------- |
+| `nacl_id` | `metadata.nacl_id` | **Yes** |
+| `region` | `metadata.region` | No |
+
+`target_asset_type`: `AWS::EC2::NetworkAcl`. No hardcoded resource id appears in the policy — the binding determines scope.
+
+**Placeholder (in the policy `DEF`):**
+
+```esp
+SET networkacls union
+    OBJECT t
+        target `AWS::EC2::NetworkAcl`
+        link `contains`
+        behavior inject_from_bound_asset
+    OBJECT_END
+SET_END
+```
+
+---
+
+## Object Fields
+
+| Field     | Type   | Required | Description                                | Example                             |
+| --------- | ------ | -------- | ------------------------------------------ | ----------------------------------- |
+| `nacl_id` | string | No\*     | Network ACL ID for direct lookup           | `acl-0cb139190dfb21ee2`             |
+| `vpc_id`  | string | No\*     | VPC ID to scope the lookup                 | `vpc-0ea38d2598962fda8`             |
+| `tags`    | string | No\*     | Tag filter in `Key=Value` format           | `Name=prooflayer-demo-nacl-private` |
+| `region`  | string | No       | AWS region override (passed as `--region`) | `us-east-1`                         |
+
+\* At least one of `nacl_id`, `vpc_id`, or `tags` must be specified.
+
+- `nacl_id` uses `--network-acl-ids` for direct lookup
+- `vpc_id` uses `--filters Name=vpc-id,Values=<value>`
+- `tags` is parsed on `=` and used as `--filters Name=tag:<Key>,Values=<Value>`
+- When multiple NACLs match, the first non-default NACL is preferred
+
+---
+
+## Commands Executed
+
+### Command 1: describe-network-acls
+
+**Resulting commands (examples):**
+
+```
+# By NACL ID
+aws ec2 describe-network-acls --network-acl-ids acl-0cb139190dfb21ee2 --output json
+
+# By VPC + tag
+aws ec2 describe-network-acls --filters Name=vpc-id,Values=vpc-0ea38d2598962fda8 --filters Name=tag:Name,Values=prooflayer-demo-nacl-private --output json
+```
+
+**Sample response (abbreviated):**
+
+```json
+{
+  "NetworkAcls": [
+    {
+      "NetworkAclId": "acl-0cb139190dfb21ee2",
+      "VpcId": "vpc-0ea38d2598962fda8",
+      "IsDefault": false,
+      "Associations": [
+        {
+          "NetworkAclAssociationId": "aclassoc-0a5c19a4620279bfb",
+          "NetworkAclId": "acl-0cb139190dfb21ee2",
+          "SubnetId": "subnet-0765f76c6a2dda34e"
+        },
+        {
+          "NetworkAclAssociationId": "aclassoc-09f26c8bee31961c2",
+          "NetworkAclId": "acl-0cb139190dfb21ee2",
+          "SubnetId": "subnet-06faa62535ba6541e"
+        }
+      ],
+      "Entries": [
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": true,
+          "PortRange": { "From": 443, "To": 443 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 100
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": true,
+          "PortRange": { "From": 80, "To": 80 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 110
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": true,
+          "PortRange": { "From": 53, "To": 53 },
+          "Protocol": "17",
+          "RuleAction": "allow",
+          "RuleNumber": 120
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": true,
+          "PortRange": { "From": 1024, "To": 65535 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 130
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": true,
+          "Protocol": "-1",
+          "RuleAction": "deny",
+          "RuleNumber": 32767
+        },
+        {
+          "CidrBlock": "10.0.0.0/16",
+          "Egress": false,
+          "PortRange": { "From": 443, "To": 443 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 100
+        },
+        {
+          "CidrBlock": "10.0.0.0/16",
+          "Egress": false,
+          "PortRange": { "From": 1024, "To": 65535 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 110
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": false,
+          "PortRange": { "From": 1024, "To": 65535 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 120
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": false,
+          "PortRange": { "From": 443, "To": 443 },
+          "Protocol": "6",
+          "RuleAction": "allow",
+          "RuleNumber": 130
+        },
+        {
+          "CidrBlock": "0.0.0.0/0",
+          "Egress": false,
+          "Protocol": "-1",
+          "RuleAction": "deny",
+          "RuleNumber": 32767
+        }
+      ],
+      "Tags": [{ "Key": "Name", "Value": "prooflayer-demo-nacl-private" }]
+    }
+  ]
+}
+```
+
+**Derived scalars from Entries array:**
+
+| Scalar Field          | Derivation Logic                         |
+| --------------------- | ---------------------------------------- |
+| `entry_count`         | Total count of all entries               |
+| `ingress_entry_count` | Count of entries where `Egress == false` |
+| `egress_entry_count`  | Count of entries where `Egress == true`  |
+| `association_count`   | Count of entries in `Associations` array |
+
+---
+
+## Collected Data Fields
+
+### Scalar Fields
+
+| Field                 | Type    | Always Present | Source                                   |
+| --------------------- | ------- | -------------- | ---------------------------------------- |
+| `found`               | boolean | Yes            | Derived — `true` if NACL found           |
+| `nacl_id`             | string  | When found     | `NetworkAclId`                           |
+| `vpc_id`              | string  | When found     | `VpcId`                                  |
+| `is_default`          | boolean | When found     | `IsDefault`                              |
+| `entry_count`         | integer | When found     | Derived — total entries                  |
+| `ingress_entry_count` | integer | When found     | Derived — entries where `Egress=false`   |
+| `egress_entry_count`  | integer | When found     | Derived — entries where `Egress=true`    |
+| `association_count`   | integer | When found     | Derived — length of `Associations` array |
+
+### RecordData Field
+
+| Field      | Type       | Always Present | Description                                 |
+| ---------- | ---------- | -------------- | ------------------------------------------- |
+| `resource` | RecordData | Yes            | Full NACL object. Empty `{}` when not found |
+
+---
+
+## RecordData Structure
+
+| Path                                     | Type    | Example Value                  |
+| ---------------------------------------- | ------- | ------------------------------ |
+| `NetworkAclId`                           | string  | `"acl-0cb139190dfb21ee2"`      |
+| `VpcId`                                  | string  | `"vpc-0ea38d2598962fda8"`      |
+| `IsDefault`                              | boolean | `false`                        |
+| `Entries.0.CidrBlock`                    | string  | `"0.0.0.0/0"`                  |
+| `Entries.0.Egress`                       | boolean | `true`                         |
+| `Entries.0.Protocol`                     | string  | `"6"` (TCP)                    |
+| `Entries.0.RuleAction`                   | string  | `"allow"`                      |
+| `Entries.0.RuleNumber`                   | integer | `100`                          |
+| `Entries.0.PortRange.From`               | integer | `443`                          |
+| `Entries.0.PortRange.To`                 | integer | `443`                          |
+| `Associations.0.SubnetId`                | string  | `"subnet-0765f76c6a2dda34e"`   |
+| `Associations.0.NetworkAclAssociationId` | string  | `"aclassoc-0a5c19a4620279bfb"` |
+
+**Protocol numbers:** `"6"` = TCP, `"17"` = UDP, `"-1"` = all traffic
+
+---
+
+## State Fields
+
+| State Field           | Type       | Allowed Operations              | Maps To Collected Field |
+| --------------------- | ---------- | ------------------------------- | ----------------------- |
+| `found`               | boolean    | `=`, `!=`                       | `found`                 |
+| `nacl_id`             | string     | `=`, `!=`                       | `nacl_id`               |
+| `vpc_id`              | string     | `=`, `!=`                       | `vpc_id`                |
+| `is_default`          | boolean    | `=`, `!=`                       | `is_default`            |
+| `entry_count`         | int        | `=`, `!=`, `>=`, `<=`, `>`, `<` | `entry_count`           |
+| `ingress_entry_count` | int        | `=`, `!=`, `>=`, `<=`, `>`, `<` | `ingress_entry_count`   |
+| `egress_entry_count`  | int        | `=`, `!=`, `>=`, `<=`, `>`, `<` | `egress_entry_count`    |
+| `association_count`   | int        | `=`, `!=`, `>=`, `>`            | `association_count`     |
+| `record`              | RecordData | (record checks)                 | `resource`              |
+
+---
+
+## Collection Strategy
+
+| Property                     | Value                       |
+| ---------------------------- | --------------------------- |
+| CTN Type               | `aws_network_acl`           |
+| Collection Mode              | Content                     |
+| Required Capabilities        | `aws_cli`, `ec2_read`       |
+| Expected Collection Time     | ~1500ms                     |
+| Memory Usage                 | ~2MB                        |
+| Network Intensive            | Yes                         |
+| CPU Intensive                | No                          |
+| Requires Elevated Privileges | No                          |
+| Batch Collection             | No                          |
+
+### Required IAM Permissions
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["ec2:DescribeNetworkAcls"],
+  "Resource": "*"
+}
+```
+
+---
+
+## ESP Examples
+
+### Private subnet NACL is non-default and associated with two subnets
+
+```esp
+OBJECT private_nacl
+    tags `Name=prooflayer-demo-nacl-private`
+    vpc_id `vpc-0ea38d2598962fda8`
+    region `us-east-1`
+OBJECT_END
+
+STATE nacl_compliant
+    found boolean = true
+    is_default boolean = false
+    association_count int >= 2
+    ingress_entry_count int >= 4
+    egress_entry_count int >= 4
+STATE_END
+
+CTN aws_network_acl
+    TEST all all AND
+    STATE_REF nacl_compliant
+    OBJECT_REF private_nacl
+CTN_END
+```
+
+### Record checks for specific rule inspection
+
+```esp
+STATE nacl_rules_valid
+    found boolean = true
+    is_default boolean = false
+    record
+        field Entries.0.RuleNumber int = 100
+        field Entries.0.Egress boolean = true
+        field Entries.0.RuleAction string = `allow`
+        field Entries.0.PortRange.From int = 443
+        field Entries.4.RuleNumber int = 32767
+        field Entries.4.Egress boolean = true
+        field Entries.4.RuleAction string = `deny`
+    record_end
+STATE_END
+```
+
+---
+
+## Error Conditions
+
+| Condition                  | Error Type                   | Outcome       |
+| -------------------------- | ---------------------------- | ------------- |
+| NACL not found             | N/A (not an error)           | `found=false` |
+| No lookup fields specified | Invalid object configuration | Error         |
+| IAM access denied          | Collection failed           | Error         |
+| Incompatible CTN type      | CTN type mismatch      | Error         |
+
+---
+
+## Related CTN Types
+
+| CTN Type             | Relationship                                                             |
+| -------------------- | ------------------------------------------------------------------------ |
+| `aws_vpc`            | NACLs belong to VPCs                                                     |
+| `aws_subnet`         | NACLs are associated with subnets                                        |
+| `aws_security_group` | SGs provide stateful filtering; NACLs provide stateless defense-in-depth |
+| `aws_route_table`    | Route tables + NACLs + SGs together prove network boundary control       |
+
+---
+
+## Scoped ESP Policy Example
+
+```esp
+DEF
+    SET private_nacl union
+        OBJECT t
+            target `AWS::EC2::NetworkAcl`
+            link `contains`
+            behavior inject_from_bound_asset
+        OBJECT_END
+    SET_END
+
+    # Private NACL: non-default, associated with private subnets, correct entry counts
+    STATE nacl_compliant
+        found boolean = true
+        is_default boolean = false
+        association_count int >= 2
+        ingress_entry_count int >= 4
+        egress_entry_count int >= 4
+    STATE_END
+
+    CRI AND
+        # Private NACL is custom and associated with private subnets
+        CTN aws_network_acl_scoped
+            TEST all all AND
+            STATE_REF nacl_compliant
+            SET_REF private_nacl
+        CTN_END
+
+    CRI_END
+DEF_END
+```
+

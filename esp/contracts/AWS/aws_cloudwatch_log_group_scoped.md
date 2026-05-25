@@ -1,0 +1,266 @@
+# aws_cloudwatch_log_group_scoped
+
+## Overview
+
+Scoped-injection variant of [`aws_cloudwatch_log_group`](aws_cloudwatch_log_group.md). The collector, command(s), collected data, and state fields are **identical to the base CTN** (reused verbatim) — this variant only changes *how the `OBJECT` is populated*: at dispatch the `inject_from_bound_asset` placeholder is replaced by one concrete `OBJECT` per resolved asset, filled from that asset's metadata. One policy file scans every matching resource, naming none.
+
+**Binds to:** `AWS::Logs::LogGroup` — depth-0 (N=1) when bound directly to the asset; fans out via the `link` relation when bound to a container.
+
+---
+
+## Injection / Projection
+
+The `aws_cloudwatch_log_group_scoped` projection fills the injected `OBJECT` fields from the bound asset's metadata:
+
+| OBJECT field | Source | Required |
+| ------------ | ------ | -------- |
+| `log_group_name` | `metadata.log_group_name` | **Yes** |
+| `region` | `metadata.region` | No |
+
+`target_asset_type`: `AWS::Logs::LogGroup`. No hardcoded resource id appears in the policy — the binding determines scope.
+
+**Placeholder (in the policy `DEF`):**
+
+```esp
+SET loggroups union
+    OBJECT t
+        target `AWS::Logs::LogGroup`
+        link `contains`
+        behavior inject_from_bound_asset
+    OBJECT_END
+SET_END
+```
+
+---
+
+## Object Fields
+
+| Field            | Type   | Required | Description                                      | Example                              |
+| ---------------- | ------ | -------- | ------------------------------------------------ | ------------------------------------ |
+| `log_group_name` | string | **Yes**  | Log group name (used as exact prefix for lookup) | `/prooflayer-demo/security/findings` |
+| `region`         | string | No       | AWS region override (passed as `--region`)       | `us-east-1`                          |
+
+- `log_group_name` is **required**. If missing, the collector returns Invalid object configuration.
+- The collector uses `--log-group-name-prefix` with the full name, then matches the first result where `logGroupName` equals the provided value exactly.
+- If no exact match is found, `found` is set to `false`.
+
+---
+
+## Commands Executed
+
+### Command 1: describe-log-groups
+
+**Resulting command:**
+
+```
+aws logs describe-log-groups --log-group-name-prefix /prooflayer-demo/security/findings --output json
+```
+
+**Sample response:**
+
+```json
+{
+  "logGroups": [
+    {
+      "logGroupName": "/prooflayer-demo/security/findings",
+      "creationTime": 1774368167576,
+      "retentionInDays": 365,
+      "metricFilterCount": 0,
+      "arn": "arn:aws:logs:us-east-1:486027077516:log-group:/prooflayer-demo/security/findings:*",
+      "storedBytes": 304155,
+      "logGroupClass": "STANDARD",
+      "logGroupArn": "arn:aws:logs:us-east-1:486027077516:log-group:/prooflayer-demo/security/findings",
+      "deletionProtectionEnabled": false
+    }
+  ]
+}
+```
+
+**Response parsing:**
+
+- Find first entry where `logGroupName == log_group_name` (exact match)
+- `logGroupName` → `log_group_name` scalar
+- `retentionInDays` → `retention_in_days` scalar (integer)
+- `logGroupClass` → `log_group_class` scalar
+- `logGroupArn` → `log_group_arn` scalar (without the `:*` suffix from `arn`)
+- `storedBytes` → `stored_bytes` scalar (integer)
+- `deletionProtectionEnabled` → `deletion_protection_enabled` scalar (boolean)
+- `metricFilterCount` → `metric_filter_count` scalar (integer)
+
+---
+
+### Error Detection
+
+| Stderr contains                              | Error variant                |
+| -------------------------------------------- | ---------------------------- |
+| `AccessDenied` or `UnauthorizedAccess`       | access-denied     |
+| `InvalidParameterValue` or `ValidationError` | invalid-parameter |
+| Anything else                                | command-failed    |
+
+No log groups matching the prefix returns an empty `logGroups` array — collector sets `found = false`.
+
+---
+
+## Collected Data Fields
+
+### Scalar Fields
+
+| Field                         | Type    | Always Present | Source                                                |
+| ----------------------------- | ------- | -------------- | ----------------------------------------------------- |
+| `found`                       | boolean | Yes            | Derived — `true` if exact log group name match found  |
+| `log_group_name`              | string  | When found     | `logGroupName`                                        |
+| `log_group_arn`               | string  | When found     | `logGroupArn` (without `:*` suffix)                   |
+| `retention_in_days`           | integer | When found     | `retentionInDays` (absent if no retention policy set) |
+| `log_group_class`             | string  | When found     | `logGroupClass`                                       |
+| `stored_bytes`                | integer | When found     | `storedBytes`                                         |
+| `deletion_protection_enabled` | boolean | When found     | `deletionProtectionEnabled`                           |
+| `metric_filter_count`         | integer | When found     | `metricFilterCount`                                   |
+
+### RecordData Field
+
+| Field      | Type       | Always Present | Description                                      |
+| ---------- | ---------- | -------------- | ------------------------------------------------ |
+| `resource` | RecordData | Yes            | Full log group object. Empty `{}` when not found |
+
+---
+
+## RecordData Structure
+
+The `resource` field contains the full log group object from the API response.
+
+| Path                        | Type    | Example Value                                                                        |
+| --------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| `logGroupName`              | string  | `"/prooflayer-demo/security/findings"`                                               |
+| `logGroupArn`               | string  | `"arn:aws:logs:us-east-1:486027077516:log-group:/prooflayer-demo/security/findings"` |
+| `retentionInDays`           | integer | `365`                                                                                |
+| `logGroupClass`             | string  | `"STANDARD"`                                                                         |
+| `storedBytes`               | integer | `304155`                                                                             |
+| `deletionProtectionEnabled` | boolean | `false`                                                                              |
+| `metricFilterCount`         | integer | `0`                                                                                  |
+
+---
+
+## State Fields
+
+### Scalar State Fields
+
+| State Field                   | Type    | Allowed Operations              | Maps To Collected Field       |
+| ----------------------------- | ------- | ------------------------------- | ----------------------------- |
+| `found`                       | boolean | `=`, `!=`                       | `found`                       |
+| `log_group_name`              | string  | `=`, `!=`, `contains`, `starts` | `log_group_name`              |
+| `log_group_arn`               | string  | `=`, `!=`, `contains`, `starts` | `log_group_arn`               |
+| `retention_in_days`           | int     | `=`, `!=`, `>=`, `>`            | `retention_in_days`           |
+| `log_group_class`             | string  | `=`, `!=`                       | `log_group_class`             |
+| `stored_bytes`                | int     | `=`, `!=`, `>=`, `>`            | `stored_bytes`                |
+| `deletion_protection_enabled` | boolean | `=`, `!=`                       | `deletion_protection_enabled` |
+| `metric_filter_count`         | int     | `=`, `!=`, `>=`, `>`            | `metric_filter_count`         |
+
+### Record Checks
+
+| State Field | Maps To Collected Field | Description                              |
+| ----------- | ----------------------- | ---------------------------------------- |
+| `record`    | `resource`              | Deep inspection of full log group object |
+
+---
+
+## Collection Strategy
+
+| Property                     | Value                                |
+| ---------------------------- | ------------------------------------ |
+| CTN Type               | `aws_cloudwatch_log_group`           |
+| Collection Mode              | Metadata                             |
+| Required Capabilities        | `aws_cli`, `cloudwatch_logs_read`    |
+| Expected Collection Time     | ~1500ms                              |
+| Memory Usage                 | ~2MB                                 |
+| Network Intensive            | Yes                                  |
+| CPU Intensive                | No                                   |
+| Requires Elevated Privileges | No                                   |
+| Batch Collection             | No                                   |
+
+### Required IAM Permissions
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["logs:DescribeLogGroups"],
+  "Resource": "*"
+}
+```
+
+---
+
+## ESP Examples
+
+### Security findings log group with 365-day retention
+
+```esp
+OBJECT security_log_group
+    log_group_name `/prooflayer-demo/security/findings`
+    region `us-east-1`
+OBJECT_END
+
+STATE log_group_compliant
+    found boolean = true
+    retention_in_days int >= 365
+    log_group_class string = `STANDARD`
+STATE_END
+
+CTN aws_cloudwatch_log_group
+    TEST all all AND
+    STATE_REF log_group_compliant
+    OBJECT_REF security_log_group
+CTN_END
+```
+
+---
+
+## Error Conditions
+
+| Condition                            | Error Type                   | Outcome       | Notes                                                        |
+| ------------------------------------ | ---------------------------- | ------------- | ------------------------------------------------------------ |
+| Log group not found                  | N/A (not an error)           | `found=false` | Empty `logGroups` array or no exact name match               |
+| `log_group_name` missing from object | Invalid object configuration | Error         | Required field                                               |
+| `aws` CLI binary not found           | Collection failed           | Error         | the `aws` CLI binary fails to spawn                         |
+| IAM access denied                    | Collection failed           | Error         | stderr matched `AccessDenied` or `UnauthorizedAccess`        |
+| Incompatible CTN type                | CTN type mismatch      | Error         | CTN type must match `aws_cloudwatch_log_group` |
+
+---
+
+## Related CTN Types
+
+| CTN Type                    | Relationship                                                   |
+| --------------------------- | -------------------------------------------------------------- |
+| `aws_cloudwatch_event_rule` | EventBridge rules target this log group for findings delivery  |
+| `aws_guardduty_detector`    | GuardDuty findings routed to this log group via EventBridge    |
+| `aws_securityhub_account`   | Security Hub findings routed to this log group via EventBridge |
+
+---
+
+## Scoped ESP Policy Example
+
+```esp
+DEF
+    SET cloudtrail_logs union
+        OBJECT t
+            target `AWS::Logs::LogGroup`
+            link `contains`
+            behavior inject_from_bound_asset
+        OBJECT_END
+    SET_END
+
+    STATE cloudtrail_logs_check
+        found boolean = true
+        retention_in_days int >= 365
+        kms_key_id string contains `KMS_KEY_ID`
+    STATE_END
+
+    CRI AND
+        CTN aws_cloudwatch_log_group_scoped
+            TEST all all AND
+            STATE_REF cloudtrail_logs_check
+            SET_REF cloudtrail_logs
+        CTN_END
+    CRI_END
+DEF_END
+```
+
