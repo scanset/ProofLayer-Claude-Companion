@@ -96,9 +96,11 @@ shows what Prooflayer is. If you've gotten here and it resonates:
   frameworks matter most in your environment?** That's what shapes coverage.
 - For a **pilot, a guided/deeper evaluation, production hardening (FIPS, HA), or
   framework/asset coverage** you need — FedRAMP 20x KSI, NIST 800-53 / 800-171,
-  CMMC, or a platform not in the alpha — reach out:
+  CMMC, or a platform not in the alpha — reach out via the
+  **[contact form](https://scanset.io/contact/)** or
   **[contact@scanset.io](mailto:contact@scanset.io)**. Alpha feedback (what was
-  missing, what broke) is just as welcome, same address.
+  missing, what broke, a bug you hit) is just as welcome — the form is the most
+  direct route and keeps everything off the container.
 
 Related: [understanding-evidence.md](../components/understanding-evidence.md),
 [replay-hash.md](../components/replay-hash.md),

@@ -173,7 +173,8 @@ That `matches: true` is the core of Prooflayer: posture re-derived from evidence
 mapped to controls, with a transparency-log leaf. If the eval lands — or you're
 weighing a **pilot, production deployment, or coverage for a framework or asset
 type you need** (FedRAMP 20x KSI, NIST 800-53 / 800-171, CMMC, or a platform not
-yet covered) — reach out: **[contact@scanset.io](mailto:contact@scanset.io)**.
+yet covered) — reach out via the **[contact form](https://scanset.io/contact/)**
+or **[contact@scanset.io](mailto:contact@scanset.io)**.
 Telling us *what assets and frameworks matter most in your environment* is the
 single most useful thing at this stage. (Deeper next steps:
 [test_fixtures/suggestions.md](test_fixtures/suggestions.md).)
