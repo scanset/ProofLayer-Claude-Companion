@@ -7,8 +7,8 @@ ad-hoc/CI/air-gapped scans, and validate a policy before linking it to assets.
 > **Testing ESP open-source.** The scanner is the open-source **ESP engine** —
 > compiler + execution engine + CLI. To test policies independently of the
 > Prooflayer container (locally, in CI, on a workstation), build it from
-> <https://github.com/scanset/Endpoint-State-Policy>. The **Agent-SDK**
-> (<https://github.com/scanset/Agent-SDK>) is the public repo for developing CTN
+> <https://github.com/CurtisDSlone/Endpoint-State-Policy>. The **Agent-SDK**
+> (<https://github.com/CurtisDSlone/Agent-SDK>) is the public repo for developing CTN
 > contracts and testing ESP policies against the engine.
 
 > Flags below are the scanner's actual CLI surface. **There is no

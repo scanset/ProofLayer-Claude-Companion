@@ -4,7 +4,7 @@ The mental model: what the engine is, the pipeline a policy travels, and the
 design principles that make a scan into a *proof*. Concepts only — not engine
 internals.
 
-> Reflects the normative ESP language specification (bundled in [spec/](spec/README.md)); the engine is pinned at v2.0.0 across Prooflayer's active stack. The engine is **open-source**: <https://github.com/scanset/Endpoint-State-Policy> (contract development + ESP testing: <https://github.com/scanset/Agent-SDK>).
+> Reflects the normative ESP language specification (bundled in [spec/](spec/README.md)); the engine is pinned at v2.0.0 across Prooflayer's active stack. The engine is **open-source**: <https://github.com/CurtisDSlone/Endpoint-State-Policy> (contract development + ESP testing: <https://github.com/CurtisDSlone/Agent-SDK>).
 
 ---
 

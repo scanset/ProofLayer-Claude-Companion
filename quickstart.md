@@ -15,12 +15,12 @@ verifiable scan result**. Each step links to the deeper page if you want detail.
 The alpha ships as a single all-in-one image. Pull it and start it:
 
 ```bash
-docker pull scanset/prooflayer-alpha-v0_1:0.1-alpha
+docker pull curtisdslone/prooflayer-alpha-v0_1:0.1-alpha
 
 # -p 8080:80   → operator UI + API
 # -p 9090:8081 → CMR read-only oversight API (optional)
 docker run -d --name prooflayer-alpha -p 8080:80 -p 9090:8081 \
-  scanset/prooflayer-alpha-v0_1:0.1-alpha
+  curtisdslone/prooflayer-alpha-v0_1:0.1-alpha
 ```
 
 Then open **http://localhost:8080** in a browser — that's the operator
@@ -167,14 +167,9 @@ Next: the [usage tour](usage/README.md) and the per-step
 
 ---
 
-## Verified a proof — like what you see?
+## Verified a proof — next steps
 
 That `matches: true` is the core of Prooflayer: posture re-derived from evidence,
-mapped to controls, with a transparency-log leaf. If the eval lands — or you're
-weighing a **pilot, production deployment, or coverage for a framework or asset
-type you need** (FedRAMP 20x KSI, NIST 800-53 / 800-171, CMMC, or a platform not
-yet covered) — reach out via the **[contact form](https://scanset.io/contact/)**
-or **[contact@scanset.io](mailto:contact@scanset.io)**.
-Telling us *what assets and frameworks matter most in your environment* is the
-single most useful thing at this stage. (Deeper next steps:
-[test_fixtures/suggestions.md](test_fixtures/suggestions.md).)
+mapped to controls, with a transparency-log leaf. For deeper exploration and next
+steps, see [test_fixtures/suggestions.md](test_fixtures/suggestions.md) for additional
+fixtures and evaluation paths.

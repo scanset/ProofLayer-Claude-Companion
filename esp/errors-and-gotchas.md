@@ -115,4 +115,4 @@ esp_assessor --channel local -o /tmp/out.json path/to/policy.esp
 
 A clean compile + an expected Pass/Fail (not Error) means the policy is sound.
 See [assessor-cli.md](assessor-cli.md). To test outside the container, build the
-open-source ESP engine from <https://github.com/scanset/Endpoint-State-Policy>.
+open-source ESP engine from <https://github.com/CurtisDSlone/Endpoint-State-Policy>.

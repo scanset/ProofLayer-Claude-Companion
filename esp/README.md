@@ -44,9 +44,9 @@ what you write — see [assessor-cli.md](assessor-cli.md)), use the engine
 directly:
 
 - **ESP engine** — the compiler + execution engine + scanner CLI:
-  <https://github.com/scanset/Endpoint-State-Policy>
+  <https://github.com/CurtisDSlone/Endpoint-State-Policy>
 - **Agent-SDK** — the public repo for **developing CTN contracts and testing
-  ESP** policies against the engine: <https://github.com/scanset/Agent-SDK>
+  ESP** policies against the engine: <https://github.com/CurtisDSlone/Agent-SDK>
 
 Prooflayer embeds this engine; the `spec/` and `contracts/` above are bundled
 copies of its language spec and check contracts. For local policy testing

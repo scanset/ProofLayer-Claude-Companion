@@ -95,7 +95,7 @@ A clean compile and an expected Pass/Fail (not `Error`) means it's sound. Common
 mistakes and what the error codes mean: [errors-and-gotchas.md](errors-and-gotchas.md).
 
 To **test outside the container** (locally / in CI), build the open-source ESP
-engine + CLI from <https://github.com/scanset/Endpoint-State-Policy> and run the
+engine + CLI from <https://github.com/CurtisDSlone/Endpoint-State-Policy> and run the
 same `esp_assessor` command there. See [assessor-cli.md](assessor-cli.md).
 
 ---

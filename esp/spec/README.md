@@ -9,7 +9,7 @@ source** to consult for an edge case.
 > Don't read these end-to-end — pull the one document the question needs.
 
 > These are bundled copies of the **open-source** ESP engine's specification:
-> <https://github.com/scanset/Endpoint-State-Policy>. To compile/run policies
+> <https://github.com/CurtisDSlone/Endpoint-State-Policy>. To compile/run policies
 > against the engine, build it from there (see [../assessor-cli.md](../assessor-cli.md)).
 
 ## Load which when

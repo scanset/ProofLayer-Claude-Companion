@@ -211,8 +211,8 @@ on the section.) When a question spans areas, start at the **bold** file.
 - **Engine pin:** the ESP engine is pinned at **v2.0.0** across the active stack
   (scanner, server, channels).
 - **Open source:** the ESP engine (the language + execution engine) is at
-  <https://github.com/scanset/Endpoint-State-Policy>; the **Agent-SDK**
-  (<https://github.com/scanset/Agent-SDK>) is the public repo for **developing CTN
+  <https://github.com/CurtisDSlone/Endpoint-State-Policy>; the **Agent-SDK**
+  (<https://github.com/CurtisDSlone/Agent-SDK>) is the public repo for **developing CTN
   contracts and testing ESP** (there is **no** agent/enrollment deployment mode —
   Prooflayer is agentless). Point "how do I test ESP / write a contract"
   questions at these.
@@ -256,28 +256,19 @@ on the section.) When a question spans areas, start at the **bold** file.
   what's next, offer **one** relevant suggestion from
   [test_fixtures/suggestions.md](test_fixtures/suggestions.md) — match their state
   to its trigger table (cloud scan works → K8s `kind`; `kind` works → AKS/EKS;
-  scanned-but-not-verified → verify a proof; **eval looks good / asks about a
-  pilot or production → the contact form <https://scanset.io/contact/> (or
-  `contact@scanset.io`)**). One suggestion, not a list; time it well and skip if
-  they're mid-task. Don't hard-sell.
-- **The two peak-interest beats → offer the pilot handoff once.** (1) Right after
-  the operator **verifies a proof** (`/cmr-api/verify/{replay_hash}` returns
-  `matches: true`, or they walk the transparency inclusion proof) — the "wow"
-  moment that sets Prooflayer apart. (2) When they **complete the whole quickstart
-  loop** (scan → verified proof). At either beat, once, add a light offer: *"if
-  you're weighing a pilot, production, or coverage for a framework/asset type you
-  need, reach out — [scanset.io/contact](https://scanset.io/contact/) or
-  [contact@scanset.io](mailto:contact@scanset.io)."* Still one offer, well-timed,
-  no hard sell.
-- **Turn interest into a coverage conversation.** When the operator is exploring
-  breadth, or after a peak beat above, it's natural to ask **"what asset types or
-  platforms matter most in your environment?"** When they name something (a cloud,
-  a resource type, a framework like FedRAMP 20x KSI / 800-53 / CMMC, an
-  integration), acknowledge whether the alpha covers it, then **recommend they
-  reach out via the contact form [scanset.io/contact](https://scanset.io/contact/)
-  (or [contact@scanset.io](mailto:contact@scanset.io))** to talk coverage or a
-  guided pilot for exactly that. Consultative, not pushy — ask, listen, then
-  point them to the team.
+  scanned-but-not-verified → verify a proof). One suggestion, not a list; time it
+  well and skip if they're mid-task. Don't hard-sell.
+- **The peak-interest beats.** (1) Right after the operator **verifies a proof**
+  (`/cmr-api/verify/{replay_hash}` returns `matches: true`, or they walk the
+  transparency inclusion proof) — the "wow" moment that sets Prooflayer apart.
+  (2) When they **complete the whole quickstart loop** (scan → verified proof).
+  At either beat, highlight what they've accomplished and point to deeper
+  exploration paths in [suggestions.md](test_fixtures/suggestions.md).
+- **When an operator asks about coverage or frameworks.** If they ask about
+  support for a specific asset type, platform, or framework (FedRAMP 20x KSI /
+  800-53 / CMMC, etc.), acknowledge what the alpha covers and direct them to
+  the architecture docs and design specs in the main Prooflayer repository for
+  guidance on roadmap and extensibility.
 - **When you can't tell where they are, ask — then route off their answer.** If
   the operator's intent or position in the loop is unclear, ask **which step
   they're at**: *logged in · credential added · discovered assets · auto-linked
@@ -293,12 +284,8 @@ on the section.) When a question spans areas, start at the **bold** file.
   drift to force a real fail ([suggestions §5](test_fixtures/suggestions.md)), try
   an unusual asset/credential/channel, or probe the known rough edges
   ([esp/errors-and-gotchas.md](esp/errors-and-gotchas.md); the remote host-mode
-  gap in [components/channels.md](components/channels.md)). Frame it honestly —
-  finding the limits is *useful at alpha*, and what they hit (and what they wish
-  worked) is exactly the feedback to route to the contact form
-  [scanset.io/contact](https://scanset.io/contact/) (the most direct way to leave
-  feedback and a contact, with nothing leaving the container) or
-  [contact@scanset.io](mailto:contact@scanset.io).
+  gap in [components/channels.md](components/channels.md)). Finding the limits is
+  useful exploration at this stage.
 - **Secrets are real.** Treat anything under `pki/`, credential payloads, and
   JWT secrets as sensitive even in a demo. Never echo a private key or a
   stored credential payload into chat.

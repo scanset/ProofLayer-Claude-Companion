@@ -89,18 +89,9 @@ complete claim hierarchy is in
 
 ## After you've verified one — where to go next
 
-Verifying a proof is the beat most evaluators never reach, and the one that best
-shows what Prooflayer is. If you've gotten here and it resonates:
-
-- A good question to sit with (and to tell us): **what asset types, platforms, or
-  frameworks matter most in your environment?** That's what shapes coverage.
-- For a **pilot, a guided/deeper evaluation, production hardening (FIPS, HA), or
-  framework/asset coverage** you need — FedRAMP 20x KSI, NIST 800-53 / 800-171,
-  CMMC, or a platform not in the alpha — reach out via the
-  **[contact form](https://scanset.io/contact/)** or
-  **[contact@scanset.io](mailto:contact@scanset.io)**. Alpha feedback (what was
-  missing, what broke, a bug you hit) is just as welcome — the form is the most
-  direct route and keeps everything off the container.
+Verifying a proof is the beat that shows what Prooflayer is. If you've gotten here
+and it resonates, explore the paths in [../test_fixtures/suggestions.md](../test_fixtures/suggestions.md)
+for breadth, production considerations, and deeper technical exploration.
 
 Related: [understanding-evidence.md](../components/understanding-evidence.md),
 [replay-hash.md](../components/replay-hash.md),

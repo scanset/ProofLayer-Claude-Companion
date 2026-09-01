@@ -26,8 +26,8 @@ Everything it needs is in this folder — it's self-contained, so answers stay
 grounded in the guide rather than guessed.
 
 > **Open source.** The ESP engine — the language + execution engine the scanner
-> runs — is open-source at <https://github.com/scanset/Endpoint-State-Policy>.
-> The **Agent-SDK** (<https://github.com/scanset/Agent-SDK>) is the public repo
+> runs — is open-source at <https://github.com/CurtisDSlone/Endpoint-State-Policy>.
+> The **Agent-SDK** (<https://github.com/CurtisDSlone/Agent-SDK>) is the public repo
 > for developing CTN contracts and testing ESP policies.
 
 ---

@@ -26,9 +26,9 @@ table, then summarize that one suggestion.
 | scanned cloud/hosts, wants **IP/network discovery** | A **network sweep** — pick a reachable setup (docker lab, bridged-adapter VMs, or a shared cloud subnet) → **§4 › Network sweep** |
 | has scanned but **hasn't verified** anything | Verify a proof end-to-end / explore the AO oversight surface → **§6** |
 | asks about **authoring their own checks** | Write a custom ESP policy → **§6** |
-| says the eval **looks good** / asks about a **pilot, production, or framework coverage** | Reach out to the team → **§7** |
-| **found a bug / hit a wall** — something broke, errored, or didn't work as expected | That's useful at alpha — send it via the contact form → **§7** |
-| wants to **leave feedback** — what was missing, what they wished worked | Route it via the contact form → **§7** |
+| says the eval **looks good** / asks about a **pilot, production, or framework coverage** | Document your findings and asset/framework needs for internal follow-up. |
+| **found a bug / hit a wall** — something broke, errored, or didn't work as expected | Document the error, steps to reproduce, and environment for troubleshooting. |
+| wants to **leave feedback** — what was missing, what they wished worked | Note the feedback for internal evaluation and future roadmap prioritization. |
 | asks **"what else can I test?"** | Walk them down §1 → §2 → §3 in order |
 
 ---
@@ -195,9 +195,6 @@ Scanning is the start, not the end. The differentiating moves:
   inclusion proof — *the* thing that sets Prooflayer apart from a findings tool.
   Most evaluators never click it. How:
   [../components/transparency-and-verifiable-evidence.md](../components/transparency-and-verifiable-evidence.md).
-  This is the **peak-interest beat**: if it lands, that's the natural moment to
-  ask what coverage they need and (once) offer §7 — the
-  [contact form](https://scanset.io/contact/) or `contact@scanset.io`.
 - **Explore the oversight (CMR) surface.** Issue a CMR viewer key
   ([../admin/README.md](../admin/README.md)) and read posture/findings/controls
   read-only over `/cmr-api/*` — or hand the key to an AI assistant and have it
@@ -211,40 +208,13 @@ Scanning is the start, not the end. The differentiating moves:
 
 ---
 
-## §7 — Talk to the team (pilot / production / coverage)
+## §7 — Next steps and resources
 
-When the eval lands — or the operator hits a question the alpha can't answer
-(production hardening, FIPS, HA, a framework or control set you need, custom
-policy coverage, a guided pilot) — point them at the team rather than guessing:
+**The open source.** The ESP engine
+(<https://github.com/CurtisDSlone/Endpoint-State-Policy>) and Agent-SDK
+(<https://github.com/CurtisDSlone/Agent-SDK>) are public to read, build, and verify
+against.
 
-> **Reach out — two equivalent routes:** the **contact form** at
-> <https://scanset.io/contact/> or email
-> **[contact@scanset.io](mailto:contact@scanset.io)** — for a pilot, a deeper or
-> guided evaluation, production deployment, or questions about framework coverage
-> (FedRAMP 20x KSI, NIST 800-53 / 800-171, CMMC) and custom policy work. The form
-> is the most direct way to leave feedback and a contact — it captures everything
-> the team needs without any data leaving the container.
-
-**A natural way in — ask, then route.** A good consultative move (especially
-after a peak beat, or when the operator explores breadth) is to ask **"what
-asset types, platforms, or frameworks matter most in your environment?"** Their
-answer is both the most useful signal for the team and the perfect segue: once
-they name something, note whether the alpha covers it, then recommend they reach
-out via the **[contact form](https://scanset.io/contact/)** (or
-**[contact@scanset.io](mailto:contact@scanset.io)**) to talk coverage or a guided
-pilot for exactly that. Ask and listen first — don't lead with the link.
-
-Also worth offering:
-
-- **Feedback on the alpha** — what was missing, what broke, which controls or
-  integrations matter to them — is genuinely useful at this stage. The
-  **[contact form](https://scanset.io/contact/)** is the most direct route to
-  leave feedback and a contact; it avoids spinning up any feedback tool that
-  would risk data egress from the container.
-- **The open source** — the ESP engine
-  (<https://github.com/scanset/Endpoint-State-Policy>) and Agent-SDK
-  (<https://github.com/scanset/Agent-SDK>) are public to read, build, and verify
-  against.
-
-> Keep it light and well-timed: offer §7 when the operator signals interest or
-> satisfaction — not as a hard sell mid-evaluation.
+**For production deployment, custom policy coverage, or deeper technical questions:**
+refer to the architecture and design docs in the main Prooflayer repository for
+guidance on scaling, hardening, FIPS certification, and extending the system.

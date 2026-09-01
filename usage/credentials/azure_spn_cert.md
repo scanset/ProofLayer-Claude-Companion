@@ -43,7 +43,7 @@ Both PEMs are pasted as multi-line text in the form, same UX as
 
 | Key                    | Purpose                                                                              |
 |---                     |---                                                                                   |
-| `organization`         | **Required for the pwsh discoverer.** Tenant primary domain (e.g. `scanset.io`). Passed to `Connect-IPPSSession -Organization`. |
+| `organization`         | **Required for the pwsh discoverer.** Tenant primary domain (e.g. `example.com`). Passed to `Connect-IPPSSession -Organization`. |
 | `tenant_display_name`  | Human label for the tenant                                                            |
 | `cert_expires_at`      | ISO-8601 timestamp the cert expires (set at create time for UI countdown reminders)   |
 
@@ -108,7 +108,7 @@ System-UI → **Admin** → **Credentials** → **Add credential**:
 5. **Certificate (PEM)**: paste `terraform output -raw pwsh_certificate`
 6. **Private key (PEM)**: paste `terraform output -raw pwsh_private_key`
 7. **Metadata**: at minimum set `organization` to your tenant primary
-   domain (e.g. `scanset.io`). The pwsh discoverer refuses to run
+   domain (e.g. `example.com`). The pwsh discoverer refuses to run
    without this.
 
 ## Used by
